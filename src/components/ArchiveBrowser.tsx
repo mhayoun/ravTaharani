@@ -60,7 +60,7 @@ function Tile({ item }: { item: ArchiveItem }) {
     const thumb = youtubeThumbnail(item.url);
     if (thumb) {
       return (
-        <span className="relative block h-[45px] w-20 shrink-0 overflow-hidden rounded-md bg-surface-2 sm:h-[50px] sm:w-[88px]">
+        <span className="relative block h-[45px] w-20 shrink-0 overflow-hidden rounded-lg bg-surface-2 shadow-[var(--shadow-sm)] sm:h-[50px] sm:w-[88px]">
           <Image
             src={thumb}
             alt=""
@@ -77,7 +77,7 @@ function Tile({ item }: { item: ArchiveItem }) {
     item.type === "audio" ? "bg-audio-bg text-audio-ink" : "bg-pdf-bg text-pdf-ink";
   return (
     <span
-      className={`flex h-[45px] w-20 shrink-0 items-center justify-center rounded-md sm:h-[50px] sm:w-[88px] ${tileClass}`}
+      className={`flex h-[45px] w-20 shrink-0 items-center justify-center rounded-lg shadow-[var(--shadow-sm)] sm:h-[50px] sm:w-[88px] ${tileClass}`}
     >
       {item.type === "audio" ? <HeadphonesIcon /> : <DocumentIcon />}
     </span>
@@ -101,14 +101,14 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13.5px] font-semibold transition-colors ${
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13.5px] font-semibold transition-all ${
         active
           ? variant === "audio"
-            ? "border-audio-ink bg-audio-ink text-white"
+            ? "border-audio-ink bg-audio-ink text-white shadow-[var(--shadow-sm)]"
             : variant === "pdf"
-              ? "border-pdf-ink bg-pdf-ink text-white"
-              : "border-accent bg-accent text-accent-ink"
-          : "border-border bg-surface text-ink-dim hover:border-accent hover:text-ink"
+              ? "border-pdf-ink bg-pdf-ink text-white shadow-[var(--shadow-sm)]"
+              : "border-accent bg-accent text-accent-ink shadow-[var(--shadow-sm)]"
+          : "border-border bg-bg text-ink-dim hover:border-accent hover:text-ink"
       }`}
     >
       {label}
@@ -126,7 +126,7 @@ function Row({ item }: { item: ArchiveItem }) {
         : "text-ink-dim";
 
   return (
-    <li className="flex items-center gap-3 border-t border-border px-4 py-2.5 first:border-t-0">
+    <li className="flex items-center gap-3 border-t border-border px-4 py-3 transition-colors first:border-t-0 hover:bg-surface-2/60">
       <Tile item={item} />
 
       <div className="min-w-0 flex-1">
@@ -223,14 +223,25 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
         ומקובצים לפי נושא
       </p>
 
-      <div className="sticky top-0 z-10 flex flex-col gap-2.5 border-b border-border bg-bg py-2.5">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="חיפוש לפי כותרת..."
-          className="w-full rounded-lg border border-border bg-surface px-3.5 py-2.5 text-[15px] text-ink outline-none placeholder:text-ink-dim focus:border-accent"
-        />
+      <div className="sticky top-3 z-10 mb-5 flex flex-col gap-3 rounded-2xl border border-border bg-surface p-3.5 shadow-[var(--shadow-md)] sm:p-4">
+        <div className="relative">
+          <svg
+            viewBox="0 0 24 24"
+            className="pointer-events-none absolute end-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-ink-dim"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+            <path d="M20 20l-4.3-4.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="חיפוש לפי כותרת..."
+            className="w-full rounded-xl border border-border bg-bg px-4 py-2.5 pe-10 text-[15px] text-ink outline-none placeholder:text-ink-dim focus:border-accent"
+          />
+        </div>
 
         <div className="flex flex-wrap gap-2">
           <Chip
@@ -327,9 +338,15 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
           const visibleTopic = category === cat ? topic : "all";
 
           return (
-            <section key={cat} className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-              <div className="flex items-baseline justify-between gap-2.5 border-b border-border px-4.5 py-3.5">
-                <h2 className="text-[19px] font-bold">{cat}</h2>
+            <section
+              key={cat}
+              className="overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-sm)]"
+            >
+              <div className="flex items-baseline justify-between gap-2.5 border-b border-border bg-surface-2 px-4.5 py-3.5">
+                <h2 className="flex items-center gap-2 text-[19px] font-bold">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold" aria-hidden="true" />
+                  {cat}
+                </h2>
                 <span className="whitespace-nowrap text-[13px] tabular-nums text-ink-dim">{catItems.length}</span>
               </div>
 
