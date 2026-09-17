@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDE
+/.idea
+
+# pdf.js runtime assets, copied from node_modules/pdfjs-dist by the
+# postinstall script (scripts/copy-pdf-worker.mjs) on every `npm install`
+/public/pdf.mjs
+/public/pdf.worker.min.mjs
+/public/cmaps
+/public/standard_fonts
