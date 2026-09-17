@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { ArchiveItem, ArchiveItemType } from "@/types/archive";
 import { CATEGORY_ORDER, SUBCATEGORY_ORDER, TYPE_LABEL } from "@/lib/subcategoryOrder";
+import { youtubeThumbnail } from "@/lib/youtube";
 
 function formatDate(d: string | null | undefined) {
   if (!d || d.length !== 8) return "לא ידוע";
@@ -23,6 +25,63 @@ function groupBy<T, K extends string>(list: T[], key: (item: T) => K): Record<st
     (out[k] ??= []).push(item);
   }
   return out;
+}
+
+function HeadphonesIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
+      <path
+        d="M4 13v-1a8 8 0 0 1 16 0v1M4 13v5a2 2 0 0 0 2 2h1v-7H5a1 1 0 0 0-1 1v-1Zm16 0v5a2 2 0 0 1-2 2h-1v-7h2a1 1 0 0 1 1 1v-1Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function DocumentIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
+      <path
+        d="M7 3.5h7l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19V5A1.5 1.5 0 0 1 7 3.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M14 3.5V8h4" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function Tile({ item }: { item: ArchiveItem }) {
+  if (item.type === "video") {
+    const thumb = youtubeThumbnail(item.url);
+    if (thumb) {
+      return (
+        <span className="relative block h-[45px] w-20 shrink-0 overflow-hidden rounded-md bg-surface-2 sm:h-[50px] sm:w-[88px]">
+          <Image
+            src={thumb}
+            alt=""
+            fill
+            sizes="88px"
+            className="object-cover"
+            unoptimized
+          />
+        </span>
+      );
+    }
+  }
+  const tileClass =
+    item.type === "audio" ? "bg-audio-bg text-audio-ink" : "bg-pdf-bg text-pdf-ink";
+  return (
+    <span
+      className={`flex h-[45px] w-20 shrink-0 items-center justify-center rounded-md sm:h-[50px] sm:w-[88px] ${tileClass}`}
+    >
+      {item.type === "audio" ? <HeadphonesIcon /> : <DocumentIcon />}
+    </span>
+  );
 }
 
 function Chip({
@@ -59,67 +118,62 @@ function Chip({
 }
 
 function Row({ item }: { item: ArchiveItem }) {
-  const badgeClass =
+  const typeClass =
     item.type === "audio"
-      ? "bg-audio-bg text-audio-ink"
+      ? "text-audio-ink"
       : item.type === "pdf"
-        ? "bg-pdf-bg text-pdf-ink"
-        : "bg-surface-2 text-ink-dim";
+        ? "text-pdf-ink"
+        : "text-ink-dim";
 
   return (
-    <li className="flex flex-col gap-1.5 border-t border-border px-4 py-2.5 first:border-t-0 sm:flex-row sm:items-center sm:gap-3">
-      <span
-        className={`w-fit shrink-0 rounded px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide ${badgeClass}`}
-      >
-        {TYPE_LABEL[item.type]}
-      </span>
+    <li className="flex items-center gap-3 border-t border-border px-4 py-2.5 first:border-t-0">
+      <Tile item={item} />
 
-      {item.type === "video" && (
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 text-[14.5px] leading-relaxed text-ink hover:text-accent hover:underline"
-        >
-          <span className="ml-1 text-xs text-ink-dim" style={{ direction: "ltr" }}>
-            ↗
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className={`text-[11px] font-semibold uppercase tracking-wide ${typeClass}`}>
+            {TYPE_LABEL[item.type]}
           </span>
-          {item.title}
-        </a>
-      )}
-
-      {item.type === "pdf" && (
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 text-[14.5px] leading-relaxed text-ink hover:text-accent hover:underline"
-        >
-          <span className="ml-1 text-xs text-ink-dim" style={{ direction: "ltr" }}>
-            ↗
-          </span>
-          {item.title}
-          {item.pages ? <span className="text-xs text-ink-dim"> · {item.pages} עמ&apos;</span> : null}
-        </a>
-      )}
-
-      {item.type === "audio" && (
-        <div className="flex flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-          <span className="text-[14.5px] leading-relaxed text-ink">
-            {item.title}
-            {item.duration_seconds ? (
-              <span className="text-xs text-ink-dim"> · {formatDuration(item.duration_seconds)}</span>
-            ) : null}
-          </span>
-          {item.url && (
-            <audio controls preload="none" className="h-8 w-full sm:w-64" src={item.url} />
-          )}
+          <span className="text-xs tabular-nums text-ink-dim">{formatDate(item.upload_date)}</span>
         </div>
-      )}
 
-      <span className="shrink-0 text-xs tabular-nums text-ink-dim sm:min-w-[78px]">
-        {formatDate(item.upload_date)}
-      </span>
+        {item.type === "video" && (
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-[14.5px] leading-snug text-ink hover:text-accent hover:underline"
+          >
+            {item.title}
+          </a>
+        )}
+
+        {item.type === "pdf" && (
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-[14.5px] leading-snug text-ink hover:text-accent hover:underline"
+          >
+            {item.title}
+            {item.pages ? <span className="text-xs text-ink-dim"> · {item.pages} עמ&apos;</span> : null}
+          </a>
+        )}
+
+        {item.type === "audio" && (
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+            <span className="text-[14.5px] leading-snug text-ink">
+              {item.title}
+              {item.duration_seconds ? (
+                <span className="text-xs text-ink-dim"> · {formatDuration(item.duration_seconds)}</span>
+              ) : null}
+            </span>
+            {item.url && (
+              <audio controls preload="none" className="h-8 w-full sm:w-64" src={item.url} />
+            )}
+          </div>
+        )}
+      </div>
     </li>
   );
 }
@@ -163,16 +217,11 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
 
   return (
     <div className="mx-auto max-w-[920px] px-4 pb-10">
-      <header className="flex flex-col gap-1.5 py-5">
-        <h1 className="text-balance text-[28px] font-bold sm:text-[34px]">
-          ארכיון טהרני - וידאו, אודיו ו-PDF
-        </h1>
-        <p className="text-[14.5px] text-ink-dim">
-          סה&quot;כ <b className="text-ink tabular-nums">{items.length}</b> פריטים (
-          {counts.video} וידאו · {counts.audio} אודיו · {counts.pdf} PDF), ממוינים לפי תאריך
-          ומקובצים לפי נושא
-        </p>
-      </header>
+      <p className="py-5 text-[14.5px] text-ink-dim">
+        סה&quot;כ <b className="text-ink tabular-nums">{items.length}</b> פריטים (
+        {counts.video} וידאו · {counts.audio} אודיו · {counts.pdf} PDF), ממוינים לפי תאריך
+        ומקובצים לפי נושא
+      </p>
 
       <div className="sticky top-0 z-10 flex flex-col gap-2.5 border-b border-border bg-bg py-2.5">
         <input
