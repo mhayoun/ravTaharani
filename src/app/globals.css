@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f2f1ea;
+  --surface: #ffffff;
+  --surface-2: #e8e5d9;
+  --ink: #1e2422;
+  --ink-dim: #5b645c;
+  --accent: #2f6b5e;
+  --accent-ink: #ffffff;
+  --gold: #b07e33;
+  --border: #d6d2c3;
+  --audio-bg: #efe4d0;
+  --audio-ink: #7a5320;
+  --pdf-bg: #e3e1ee;
+  --pdf-ink: #4a4780;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14191a;
+    --surface: #1c2323;
+    --surface-2: #232b2a;
+    --ink: #eceee8;
+    --ink-dim: #a6afa9;
+    --accent: #55a18c;
+    --accent-ink: #08110f;
+    --gold: #dca755;
+    --border: #303a38;
+    --audio-bg: #332818;
+    --audio-ink: #e7c284;
+    --pdf-bg: #2b2a3d;
+    --pdf-ink: #b7b3e0;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-dim: var(--ink-dim);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-gold: var(--gold);
+  --color-border: var(--border);
+  --color-audio-bg: var(--audio-bg);
+  --color-audio-ink: var(--audio-ink);
+  --color-pdf-bg: var(--pdf-bg);
+  --color-pdf-ink: var(--pdf-ink);
+  --font-heebo: var(--font-heebo);
+  --font-frank-ruhl: var(--font-frank-ruhl);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-heebo), "Segoe UI", system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-frank-ruhl), "Times New Roman", serif;
+}
