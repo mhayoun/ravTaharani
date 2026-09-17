@@ -3,8 +3,11 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { ArchiveItem, ArchiveItemType } from "@/types/archive";
+import type { PdfMatch } from "@/types/pdfSearch";
 import { CATEGORY_ORDER, SUBCATEGORY_ORDER, TYPE_LABEL } from "@/lib/subcategoryOrder";
 import { youtubeThumbnail } from "@/lib/youtube";
+import PdfSearch from "./PdfSearch";
+import PdfViewer from "./PdfViewer";
 
 function formatDate(d: string | null | undefined) {
   if (!d || d.length !== 8) return "לא ידוע";
@@ -117,13 +120,31 @@ function Chip({
   );
 }
 
-function Row({ item }: { item: ArchiveItem }) {
+function highlightTitle(title: string, query: string) {
+  const q = query.trim();
+  if (!q) return title;
+  const idx = title.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return title;
+  return (
+    <>
+      {title.slice(0, idx)}
+      <mark className="rounded bg-yellow-300 px-0.5 py-px font-semibold text-ink">
+        {title.slice(idx, idx + q.length)}
+      </mark>
+      {title.slice(idx + q.length)}
+    </>
+  );
+}
+
+function Row({ item, query }: { item: ArchiveItem; query?: string }) {
   const typeClass =
     item.type === "audio"
       ? "text-audio-ink"
       : item.type === "pdf"
         ? "text-pdf-ink"
         : "text-ink-dim";
+
+  const titleNode = query ? highlightTitle(item.title, query) : item.title;
 
   return (
     <li className="flex items-center gap-3 border-t border-border px-4 py-3 transition-colors first:border-t-0 hover:bg-surface-2/60">
@@ -144,7 +165,7 @@ function Row({ item }: { item: ArchiveItem }) {
             rel="noopener noreferrer"
             className="block text-[14.5px] leading-snug text-ink hover:text-accent hover:underline"
           >
-            {item.title}
+            {titleNode}
           </a>
         )}
 
@@ -155,7 +176,7 @@ function Row({ item }: { item: ArchiveItem }) {
             rel="noopener noreferrer"
             className="block text-[14.5px] leading-snug text-ink hover:text-accent hover:underline"
           >
-            {item.title}
+            {titleNode}
             {item.pages ? <span className="text-xs text-ink-dim"> · {item.pages} עמ&apos;</span> : null}
           </a>
         )}
@@ -163,7 +184,7 @@ function Row({ item }: { item: ArchiveItem }) {
         {item.type === "audio" && (
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
             <span className="text-[14.5px] leading-snug text-ink">
-              {item.title}
+              {titleNode}
               {item.duration_seconds ? (
                 <span className="text-xs text-ink-dim"> · {formatDuration(item.duration_seconds)}</span>
               ) : null}
@@ -183,10 +204,38 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
   const [category, setCategory] = useState<string>("all");
   const [topic, setTopic] = useState<string>("all");
   const [query, setQuery] = useState("");
+  const [pdfViewer, setPdfViewer] = useState<PdfMatch | null>(null);
 
   const scoped = useMemo(
     () => (type === "all" ? items : items.filter((i) => i.type === type)),
     [items, type]
+  );
+
+  // Also scoped by the selected category/topic chips, so a search made
+  // while e.g. וידאו + חגים + יום כיפור are selected only searches there.
+  const categoryTopicScoped = useMemo(() => {
+    let list = scoped;
+    if (category !== "all") list = list.filter((i) => i.category === category);
+    if (topic !== "all") list = list.filter((i) => (i.subcategory ?? "") === topic);
+    return list;
+  }, [scoped, category, topic]);
+
+  const titleMatches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return categoryTopicScoped.filter(
+      (i) => (i.type === "video" || i.type === "audio") && i.title.toLowerCase().includes(q)
+    );
+  }, [categoryTopicScoped, query]);
+
+  const pdfSearchUrls = useMemo(
+    () =>
+      new Set(
+        categoryTopicScoped
+          .filter((i): i is ArchiveItem & { url: string } => i.type === "pdf" && !!i.url)
+          .map((i) => i.url)
+      ),
+    [categoryTopicScoped]
   );
 
   const byCategory = useMemo(() => groupBy(scoped, (i) => i.category), [scoped]);
@@ -203,11 +252,6 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
   const usesTopics = subOrder ? true : subKeys.length > 1 || (subKeys.length === 1 && subKeys[0] !== "");
   const topicOrder = subOrder ?? subKeys;
 
-  function matchesQuery(item: ArchiveItem) {
-    if (!query.trim()) return true;
-    return item.title.includes(query.trim());
-  }
-
   const counts = {
     all: items.length,
     video: items.filter((i) => i.type === "video").length,
@@ -219,7 +263,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
     <div className="mx-auto max-w-[920px] px-4 pb-10">
       <p className="py-5 text-[14.5px] text-ink-dim">
         סה&quot;כ <b className="text-ink tabular-nums">{items.length}</b> פריטים (
-        {counts.video} וידאו · {counts.audio} אודיו · {counts.pdf} PDF), ממוינים לפי תאריך
+        {counts.video} וידאו · {counts.audio} אודיו · {counts.pdf} ספרים), ממוינים לפי תאריך
         ומקובצים לפי נושא
       </p>
 
@@ -276,7 +320,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
             }}
           />
           <Chip
-            label="PDF"
+            label="ספרים"
             count={counts.pdf}
             active={type === "pdf"}
             variant="pdf"
@@ -288,31 +332,33 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
           />
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Chip
-            label="הכל"
-            count={scoped.length}
-            active={category === "all"}
-            onClick={() => {
-              setCategory("all");
-              setTopic("all");
-            }}
-          />
-          {categories.map((cat) => (
+        {!query.trim() && (
+          <div className="flex flex-wrap gap-2">
             <Chip
-              key={cat}
-              label={cat}
-              count={byCategory[cat].length}
-              active={category === cat}
+              label="הכל"
+              count={scoped.length}
+              active={category === "all"}
               onClick={() => {
-                setCategory(cat);
+                setCategory("all");
                 setTopic("all");
               }}
             />
-          ))}
-        </div>
+            {categories.map((cat) => (
+              <Chip
+                key={cat}
+                label={cat}
+                count={byCategory[cat].length}
+                active={category === cat}
+                onClick={() => {
+                  setCategory(cat);
+                  setTopic("all");
+                }}
+              />
+            ))}
+          </div>
+        )}
 
-        {usesTopics && category !== "all" && (
+        {!query.trim() && usesTopics && category !== "all" && (
           <div className="flex flex-wrap gap-2">
             <Chip label="הכל" count={activeCategoryItems.length} active={topic === "all"} onClick={() => setTopic("all")} />
             {topicOrder
@@ -324,68 +370,102 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
         )}
       </div>
 
+      {titleMatches.length > 0 && (
+        <details open className="mb-4 overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-sm)]">
+          <summary className="flex cursor-pointer items-center justify-between gap-2.5 border-b border-border bg-surface-2 px-4.5 py-3.5 [&::-webkit-details-marker]:hidden">
+            <h2 className="flex items-center gap-2 text-[19px] font-bold">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold" aria-hidden="true" />
+              וידאו ואודיו עם &quot;{query.trim()}&quot; בכותרת
+            </h2>
+            <span className="whitespace-nowrap text-[13px] tabular-nums text-ink-dim">{titleMatches.length}</span>
+          </summary>
+          <ul>
+            {titleMatches.map((item) => (
+              <Row key={item.title + item.upload_date} item={item} query={query} />
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {type !== "video" && type !== "audio" && (
+        <div className="mb-4">
+          <PdfSearch query={query} onOpenResult={setPdfViewer} allowedUrls={pdfSearchUrls} />
+        </div>
+      )}
+
       <main className="mt-4 flex flex-col gap-4">
-        {(category === "all" ? categories : [category]).map((cat) => {
-          const catItems = byCategory[cat];
-          if (!catItems?.length) return null;
-          const catSubOrder = SUBCATEGORY_ORDER[cat];
-          const catBySub = groupBy(catItems, (i) => i.subcategory ?? "");
-          const catSubKeys = Object.keys(catBySub);
-          const catUsesTopics =
-            catSubOrder ? true : catSubKeys.length > 1 || (catSubKeys.length === 1 && catSubKeys[0] !== "");
-          const catTopicOrder = catSubOrder ?? catSubKeys;
+        {!query.trim() &&
+          (category === "all" ? categories : [category]).map((cat) => {
+            const catItems = byCategory[cat];
+            if (!catItems?.length) return null;
+            const catSubOrder = SUBCATEGORY_ORDER[cat];
+            const catBySub = groupBy(catItems, (i) => i.subcategory ?? "");
+            const catSubKeys = Object.keys(catBySub);
+            const catUsesTopics =
+              catSubOrder ? true : catSubKeys.length > 1 || (catSubKeys.length === 1 && catSubKeys[0] !== "");
+            const catTopicOrder = catSubOrder ?? catSubKeys;
 
-          const visibleTopic = category === cat ? topic : "all";
+            const visibleTopic = category === cat ? topic : "all";
 
-          return (
-            <section
-              key={cat}
-              className="overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-sm)]"
-            >
-              <div className="flex items-baseline justify-between gap-2.5 border-b border-border bg-surface-2 px-4.5 py-3.5">
-                <h2 className="flex items-center gap-2 text-[19px] font-bold">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold" aria-hidden="true" />
-                  {cat}
-                </h2>
-                <span className="whitespace-nowrap text-[13px] tabular-nums text-ink-dim">{catItems.length}</span>
-              </div>
+            return (
+              <section
+                key={cat}
+                className="overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-sm)]"
+              >
+                <div className="flex items-baseline justify-between gap-2.5 border-b border-border bg-surface-2 px-4.5 py-3.5">
+                  <h2 className="flex items-center gap-2 text-[19px] font-bold">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold" aria-hidden="true" />
+                    {cat}
+                  </h2>
+                  <span className="whitespace-nowrap text-[13px] tabular-nums text-ink-dim">{catItems.length}</span>
+                </div>
 
-              {catUsesTopics ? (
-                catTopicOrder
-                  .filter((sub) => catBySub[sub]?.length)
-                  .filter((sub) => visibleTopic === "all" || visibleTopic === sub)
-                  .map((sub) => {
-                    const rows = catBySub[sub].filter(matchesQuery);
-                    if (!rows.length) return null;
-                    return (
-                      <details key={sub} open className="border-b border-border last:border-b-0">
-                        <summary className="flex cursor-pointer items-center justify-between gap-2.5 bg-surface-2 px-4.5 py-2.5 text-[14.5px] font-semibold [&::-webkit-details-marker]:hidden">
-                          <span className="text-gold">{sub || "כללי"}</span>
-                          <span className="text-[12.5px] font-normal tabular-nums text-ink-dim">{rows.length}</span>
-                        </summary>
-                        <ul>
-                          {rows.map((item) => (
-                            <Row key={item.title + item.upload_date} item={item} />
-                          ))}
-                        </ul>
-                      </details>
-                    );
-                  })
-              ) : (
-                <ul>
-                  {catItems.filter(matchesQuery).map((item) => (
-                    <Row key={item.title + item.upload_date} item={item} />
-                  ))}
-                </ul>
-              )}
-            </section>
-          );
-        })}
+                {catUsesTopics ? (
+                  catTopicOrder
+                    .filter((sub) => catBySub[sub]?.length)
+                    .filter((sub) => visibleTopic === "all" || visibleTopic === sub)
+                    .map((sub) => {
+                      const rows = catBySub[sub];
+                      if (!rows.length) return null;
+                      return (
+                        <details key={sub} open className="border-b border-border last:border-b-0">
+                          <summary className="flex cursor-pointer items-center justify-between gap-2.5 bg-surface-2 px-4.5 py-2.5 text-[14.5px] font-semibold [&::-webkit-details-marker]:hidden">
+                            <span className="text-gold">{sub || "כללי"}</span>
+                            <span className="text-[12.5px] font-normal tabular-nums text-ink-dim">{rows.length}</span>
+                          </summary>
+                          <ul>
+                            {rows.map((item) => (
+                              <Row key={item.title + item.upload_date} item={item} />
+                            ))}
+                          </ul>
+                        </details>
+                      );
+                    })
+                ) : (
+                  <ul>
+                    {catItems.map((item) => (
+                      <Row key={item.title + item.upload_date} item={item} />
+                    ))}
+                  </ul>
+                )}
+              </section>
+            );
+          })}
       </main>
 
       <footer className="pt-4 text-center text-xs text-ink-dim">
-        קטלוג משולב - וידאו/אודיו/PDF · אודיו ו-PDF מתארחים ב-Vercel Blob
+        קטלוג משולב - וידאו/אודיו/ספרים · אודיו וספרים מתארחים ב-Vercel Blob
       </footer>
+
+      {pdfViewer && (
+        <PdfViewer
+          url={pdfViewer.url}
+          title={pdfViewer.title}
+          initialPage={pdfViewer.page}
+          query={pdfViewer.match}
+          onClose={() => setPdfViewer(null)}
+        />
+      )}
     </div>
   );
 }

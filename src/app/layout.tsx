@@ -16,7 +16,7 @@ const frankRuhlLibre = Frank_Ruhl_Libre({
 
 export const metadata: Metadata = {
   title: "ארכיון טהרני",
-  description: "וידאו, אודיו ו-PDF של הדיין הרב אבישי טהרני שליט\"א",
+  description: "וידאו, אודיו וספרים של הדיין הרב אבישי טהרני שליט\"א",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

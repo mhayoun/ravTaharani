@@ -39,5 +39,5 @@ export const SUBCATEGORY_ORDER: Record<string, string[]> = {
 export const TYPE_LABEL: Record<string, string> = {
   video: "וידאו",
   audio: "אודיו",
-  pdf: "PDF",
+  pdf: "ספרים",
 };

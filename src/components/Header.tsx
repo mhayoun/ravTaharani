@@ -10,7 +10,7 @@ export default function Header() {
             הדיין הרב אבישי טהרני שליט&quot;א
           </h1>
           <p className="text-[11px] text-[#cdc3ae] sm:text-[12px]">
-            ארכיון שיעורים - וידאו, אודיו ו-PDF
+            ארכיון שיעורים - וידאו, אודיו וספרים
           </p>
         </div>
       </div>
