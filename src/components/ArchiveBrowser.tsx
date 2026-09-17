@@ -121,7 +121,9 @@ function Chip({
 }
 
 function highlightTitle(title: string, query: string) {
-  const q = query.trim();
+  // Collapse whitespace so a pasted sentence with extra/irregular spacing
+  // (double spaces, line breaks) still matches as one exact phrase.
+  const q = query.trim().replace(/\s+/g, " ");
   if (!q) return title;
   const idx = title.toLowerCase().indexOf(q.toLowerCase());
   if (idx === -1) return title;
@@ -221,7 +223,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
   }, [scoped, category, topic]);
 
   const titleMatches = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim().replace(/\s+/g, " ").toLowerCase();
     if (q.length < 2) return [];
     return categoryTopicScoped.filter(
       (i) => (i.type === "video" || i.type === "audio") && i.title.toLowerCase().includes(q)
@@ -267,7 +269,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
         ומקובצים לפי נושא
       </p>
 
-      <div className="sticky top-3 z-10 mb-5 flex flex-col gap-3 rounded-2xl border border-border bg-surface p-3.5 shadow-[var(--shadow-md)] sm:p-4">
+      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-border bg-surface p-3.5 shadow-[var(--shadow-md)] sm:p-4">
         <div className="relative">
           <svg
             viewBox="0 0 24 24"
@@ -282,7 +284,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="חיפוש לפי כותרת..."
+            placeholder="חיפוש לפי כותרת לוידאו/אודיו ולפי תוכן לספרים..."
             className="w-full rounded-xl border border-border bg-bg px-4 py-2.5 pe-10 text-[15px] text-ink outline-none placeholder:text-ink-dim focus:border-accent"
           />
         </div>
@@ -408,17 +410,18 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
             const visibleTopic = category === cat ? topic : "all";
 
             return (
-              <section
+              <details
                 key={cat}
+                open
                 className="overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-sm)]"
               >
-                <div className="flex items-baseline justify-between gap-2.5 border-b border-border bg-surface-2 px-4.5 py-3.5">
+                <summary className="flex cursor-pointer items-baseline justify-between gap-2.5 border-b border-border bg-surface-2 px-4.5 py-3.5 [&::-webkit-details-marker]:hidden">
                   <h2 className="flex items-center gap-2 text-[19px] font-bold">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold" aria-hidden="true" />
                     {cat}
                   </h2>
                   <span className="whitespace-nowrap text-[13px] tabular-nums text-ink-dim">{catItems.length}</span>
-                </div>
+                </summary>
 
                 {catUsesTopics ? (
                   catTopicOrder
@@ -448,7 +451,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
                     ))}
                   </ul>
                 )}
-              </section>
+              </details>
             );
           })}
       </main>

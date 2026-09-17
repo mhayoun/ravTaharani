@@ -54,7 +54,9 @@ export default function PdfSearch({
     };
   }, []);
 
-  const trimmed = query.trim();
+  // Collapse whitespace so a pasted sentence with extra/irregular spacing
+  // (double spaces, line breaks) still matches as one exact phrase.
+  const trimmed = query.trim().replace(/\s+/g, " ");
 
   useEffect(() => {
     if (!manifest || manifest.length === 0 || trimmed.length < MIN_QUERY_LENGTH) {

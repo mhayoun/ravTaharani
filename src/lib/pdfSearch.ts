@@ -18,7 +18,10 @@ function wordsAfter(text: string, n: number) {
 /** Finds every occurrence of `query` inside a PDF's page texts, with 10 words
  * of context on each side, for use as highlighted search-result snippets. */
 export function findMatchesInPdf(index: PdfIndex, query: string, limit: number): PdfMatch[] {
-  const q = query.trim();
+  // Collapse whitespace: PDF text extraction already normalizes runs of
+  // whitespace to a single space, so the query must match that to find a
+  // multi-word phrase.
+  const q = query.trim().replace(/\s+/g, " ");
   if (!q) return [];
   const qLower = q.toLowerCase();
   const matches: PdfMatch[] = [];
