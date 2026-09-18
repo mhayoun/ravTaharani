@@ -162,8 +162,9 @@ function FullscreenExitIcon() {
 // Plays the video via the YouTube IFrame Player API with controls=0, and a
 // transparent overlay blocking all direct interaction with the underlying
 // YouTube surface (its own play/pause, related-video screens, logo link,
-// etc.) - playback is only controllable through the header's own play,
-// seek, and volume controls below.
+// etc.) - playback is only controllable through this component's own UI:
+// play/seek in the header above the video, mute/volume/fullscreen in the
+// footer below it.
 export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
   const videoId = youtubeVideoId(url);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -350,36 +351,6 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
             <span className="w-9 shrink-0 text-[11px] tabular-nums text-ink-dim">
               {formatTime(duration)}
             </span>
-            <button
-              type="button"
-              onClick={toggleMute}
-              className="shrink-0 rounded-full p-1.5 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
-              aria-label={muted ? "בטל השתקה" : "השתק"}
-            >
-              {muted ? <VolumeMutedIcon /> : <VolumeIcon />}
-            </button>
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              className="shrink-0 rounded-full p-1.5 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
-              aria-label={fullscreen ? "צא ממסך מלא" : "מסך מלא"}
-            >
-              {fullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
-            </button>
-          </div>
-
-          <div className="hidden items-center gap-2 ps-9 sm:flex">
-            <VolumeIcon />
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={volume}
-              onChange={onVolumeInput}
-              className="h-1.5 w-full max-w-40 accent-accent"
-              aria-label="עוצמת קול"
-            />
           </div>
         </div>
 
@@ -395,6 +366,35 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
               לא ניתן לטעון את הסרטון
             </p>
           )}
+        </div>
+
+        <div className="flex items-center gap-2 border-t border-border bg-surface-2 px-3 py-2">
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="shrink-0 rounded-full p-1.5 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
+            aria-label={muted ? "בטל השתקה" : "השתק"}
+          >
+            {muted ? <VolumeMutedIcon /> : <VolumeIcon />}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={volume}
+            onChange={onVolumeInput}
+            className="h-1.5 flex-1 accent-accent"
+            aria-label="עוצמת קול"
+          />
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="shrink-0 rounded-full p-1.5 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
+            aria-label={fullscreen ? "צא ממסך מלא" : "מסך מלא"}
+          >
+            {fullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+          </button>
         </div>
       </div>
     </div>
