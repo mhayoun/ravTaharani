@@ -117,11 +117,15 @@ function VolumeIcon() {
 // Plays the video via the YouTube IFrame Player API with controls=0, and a
 // transparent overlay blocking direct interaction with the underlying
 // YouTube surface (its own play/pause, related-video screens, logo link,
-// etc.) - playback is normally only controllable through the header's own
-// play, seek, and volume controls below. The header also has a toggle to
-// temporarily drop the overlay, for when YouTube shows its own "sign in to
-// confirm you're not a bot" prompt (common on mobile) that needs a real
-// click to resolve.
+// etc.) - playback is only controllable through the header's own play,
+// seek, and volume controls below.
+//
+// On mobile YouTube sometimes shows its own "sign in to confirm you're not
+// a bot" prompt inside the iframe. We tried letting clicks through to
+// resolve it in place, but Google's sign-in UI breaks out of the iframe
+// (top-level navigation) when tapped - taking the user to youtube.com/the
+// app with no way back to this tab. So instead we just offer a plain link
+// to open the video on YouTube in a NEW tab, leaving this tab untouched.
 export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
   const videoId = youtubeVideoId(url);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -132,12 +136,6 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
   const [volume, setVolume] = useState(100);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
-  // YouTube sometimes shows its own "sign in to confirm you're not a bot"
-  // prompt inside the iframe (common on mobile) - we can't detect that
-  // cross-origin screen directly, so this lets the user manually let clicks
-  // through to reach it, then re-locks automatically once real playback
-  // (confirmed via onStateChange) shows the prompt was resolved.
-  const [ytInteractive, setYtInteractive] = useState(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -181,10 +179,8 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
             e.target.playVideo();
           },
           onStateChange: (e) => {
-            const isPlaying = e.data === YT.PlayerState.PLAYING;
-            setPlaying(isPlaying);
+            setPlaying(e.data === YT.PlayerState.PLAYING);
             setDuration(e.target.getDuration());
-            if (isPlaying) setYtInteractive(false);
           },
         },
       });
@@ -254,15 +250,16 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setYtInteractive((v) => !v)}
-            className="self-start text-[11.5px] font-semibold text-accent hover:underline"
-          >
-            {ytInteractive
-              ? "סיימתם? לחצו כאן לחסום שוב את יוטיוב"
-              : 'בעיה בטעינת הסרטון או הודעת "התחברו לאימות"? לחצו כאן'}
-          </button>
+          {url && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="self-start text-[11.5px] font-semibold text-accent hover:underline"
+            >
+              הסרטון לא נטען? צפו בו ביוטיוב (בטאב חדש)
+            </a>
+          )}
 
           <div className="flex items-center gap-2">
             <button
@@ -309,9 +306,8 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
           {videoId ? (
             <>
               <div ref={containerRef} className="absolute inset-0 h-full w-full" />
-              {/* Blocks direct interaction with the YouTube player underneath,
-                  unless the user enabled ytInteractive (see button above). */}
-              {!ytInteractive && <div className="absolute inset-0" />}
+              {/* Blocks all direct interaction with the YouTube player underneath */}
+              <div className="absolute inset-0" />
             </>
           ) : (
             <p className="flex h-full items-center justify-center p-6 text-center text-ink-dim">
