@@ -1,6 +1,15 @@
-export function youtubeThumbnail(url: string | undefined): string | null {
+function extractVideoId(url: string | undefined): string | null {
   if (!url) return null;
   const match = url.match(/[?&]v=([^&]+)/);
-  if (!match) return null;
-  return `https://i.ytimg.com/vi/${match[1]}/mqdefault.jpg`;
+  return match ? match[1] : null;
+}
+
+export function youtubeThumbnail(url: string | undefined): string | null {
+  const id = extractVideoId(url);
+  return id ? `https://i.ytimg.com/vi/${id}/mqdefault.jpg` : null;
+}
+
+export function youtubeEmbedUrl(url: string | undefined): string | null {
+  const id = extractVideoId(url);
+  return id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1` : null;
 }

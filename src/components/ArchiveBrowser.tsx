@@ -8,6 +8,7 @@ import { CATEGORY_ORDER, SUBCATEGORY_ORDER, TYPE_LABEL } from "@/lib/subcategory
 import { youtubeThumbnail } from "@/lib/youtube";
 import PdfSearch from "./PdfSearch";
 import PdfViewer from "./PdfViewer";
+import VideoPlayer from "./VideoPlayer";
 
 function formatDate(d: string | null | undefined) {
   if (!d || d.length !== 8) return "לא ידוע";
@@ -138,7 +139,15 @@ function highlightTitle(title: string, query: string) {
   );
 }
 
-function Row({ item, query }: { item: ArchiveItem; query?: string }) {
+function Row({
+  item,
+  query,
+  onOpenVideo,
+}: {
+  item: ArchiveItem;
+  query?: string;
+  onOpenVideo?: (item: ArchiveItem) => void;
+}) {
   const typeClass =
     item.type === "audio"
       ? "text-audio-ink"
@@ -161,14 +170,13 @@ function Row({ item, query }: { item: ArchiveItem; query?: string }) {
         </div>
 
         {item.type === "video" && (
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block text-[14.5px] leading-snug text-ink hover:text-accent hover:underline"
+          <button
+            type="button"
+            onClick={() => onOpenVideo?.(item)}
+            className="block text-start text-[14.5px] leading-snug text-ink hover:text-accent hover:underline"
           >
             {titleNode}
-          </a>
+          </button>
         )}
 
         {item.type === "pdf" && (
@@ -207,6 +215,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
   const [topic, setTopic] = useState<string>("all");
   const [query, setQuery] = useState("");
   const [pdfViewer, setPdfViewer] = useState<PdfMatch | null>(null);
+  const [videoPlayer, setVideoPlayer] = useState<ArchiveItem | null>(null);
 
   const scoped = useMemo(
     () => (type === "all" ? items : items.filter((i) => i.type === type)),
@@ -383,7 +392,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
           </summary>
           <ul>
             {titleMatches.map((item) => (
-              <Row key={item.title + item.upload_date} item={item} query={query} />
+              <Row key={item.title + item.upload_date} item={item} query={query} onOpenVideo={setVideoPlayer} />
             ))}
           </ul>
         </details>
@@ -438,7 +447,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
                           </summary>
                           <ul>
                             {rows.map((item) => (
-                              <Row key={item.title + item.upload_date} item={item} />
+                              <Row key={item.title + item.upload_date} item={item} onOpenVideo={setVideoPlayer} />
                             ))}
                           </ul>
                         </details>
@@ -447,7 +456,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
                 ) : (
                   <ul>
                     {catItems.map((item) => (
-                      <Row key={item.title + item.upload_date} item={item} />
+                      <Row key={item.title + item.upload_date} item={item} onOpenVideo={setVideoPlayer} />
                     ))}
                   </ul>
                 )}
@@ -467,6 +476,14 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
           initialPage={pdfViewer.page}
           query={pdfViewer.match}
           onClose={() => setPdfViewer(null)}
+        />
+      )}
+
+      {videoPlayer?.url && (
+        <VideoPlayer
+          url={videoPlayer.url}
+          title={videoPlayer.title}
+          onClose={() => setVideoPlayer(null)}
         />
       )}
     </div>
