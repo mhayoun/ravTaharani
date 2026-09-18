@@ -8,7 +8,7 @@
 // URL instead of being re-uploaded, and items flagged needs_review are left
 // out entirely until a human resolves the classification and reruns.
 // Run with: node --env-file=.env.local scripts/upload-media.mjs
-import { put, head } from "@vercel/blob";
+import { put, head, del } from "@vercel/blob";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -100,6 +100,22 @@ async function main() {
 
   const publishedAudio = await publishItems(audio, "audio", existingByKey, "Audio");
   const publishedPdfs = await publishItems(pdfs, "pdf", existingByKey, "PDF");
+
+  // Files renamed or removed locally (e.g. a lesson retitled) drop out of
+  // taharani_audio.json/taharani_pdf.json on the next classify - delete
+  // their old blob so a rename acts as a true replace, not a leftover copy.
+  const stillPresentKeys = new Set(
+    [...publishedAudio, ...publishedPdfs].map((i) => `${i.type}:${i.filename}`)
+  );
+  for (const [key, item] of existingByKey) {
+    if ((item.type !== "audio" && item.type !== "pdf") || stillPresentKeys.has(key)) continue;
+    try {
+      await del(item.url);
+      console.log(`Deleted orphaned blob: ${item.filename}`);
+    } catch (err) {
+      console.error(`Failed to delete orphaned blob ${item.filename}:`, err.message);
+    }
+  }
 
   const combined = [...videos, ...publishedAudio, ...publishedPdfs].sort((a, b) =>
     (b.upload_date || "00000000").localeCompare(a.upload_date || "00000000")
