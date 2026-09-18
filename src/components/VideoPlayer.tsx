@@ -270,6 +270,9 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
             <span className="w-9 shrink-0 text-[11px] tabular-nums text-ink-dim">
               {formatTime(duration)}
             </span>
+          </div>
+
+          <div className="flex items-center gap-2 ps-9">
             <VolumeIcon />
             <input
               type="range"
@@ -278,7 +281,7 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
               step={1}
               value={volume}
               onChange={onVolumeInput}
-              className="h-1.5 w-20 shrink-0 accent-accent"
+              className="h-1.5 w-full max-w-40 accent-accent"
               aria-label="עוצמת קול"
             />
           </div>
