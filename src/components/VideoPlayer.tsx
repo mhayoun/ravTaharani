@@ -16,6 +16,9 @@ interface YTPlayer {
   getCurrentTime(): number;
   getDuration(): number;
   setVolume(volume: number): void;
+  mute(): void;
+  unMute(): void;
+  isMuted(): boolean;
   destroy(): void;
 }
 
@@ -114,6 +117,48 @@ function VolumeIcon() {
   );
 }
 
+function VolumeMutedIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" aria-hidden="true">
+      <path
+        d="M4 9v6h4l5 4V5L8 9H4Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path d="M15.5 9.5l4 4M19.5 9.5l-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function FullscreenIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
+      <path
+        d="M9 4H5a1 1 0 0 0-1 1v4M15 4h4a1 1 0 0 1 1 1v4M9 20H5a1 1 0 0 1-1-1v-4M15 20h4a1 1 0 0 0 1-1v-4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function FullscreenExitIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
+      <path
+        d="M4 9h4a1 1 0 0 0 1-1V4M20 9h-4a1 1 0 0 1-1-1V4M4 15h4a1 1 0 0 1 1 1v4M20 15h-4a1 1 0 0 0-1 1v4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 // Plays the video via the YouTube IFrame Player API with controls=0, and a
 // transparent overlay blocking all direct interaction with the underlying
 // YouTube surface (its own play/pause, related-video screens, logo link,
@@ -122,13 +167,24 @@ function VolumeIcon() {
 export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
   const videoId = youtubeVideoId(url);
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoAreaRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const seekingRef = useRef(false);
 
   const [playing, setPlaying] = useState(false);
   const [volume, setVolume] = useState(100);
+  const [muted, setMuted] = useState(false);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      setFullscreen(document.fullscreenElement === videoAreaRef.current);
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -220,6 +276,28 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
     playerRef.current?.setVolume(v);
   }
 
+  function toggleMute() {
+    const p = playerRef.current;
+    if (!p) return;
+    if (muted) {
+      p.unMute();
+      setMuted(false);
+    } else {
+      p.mute();
+      setMuted(true);
+    }
+  }
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      videoAreaRef.current?.requestFullscreen().catch(() => {
+        // fullscreen not supported/allowed here - ignore
+      });
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-6"
@@ -228,6 +306,7 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
       aria-modal="true"
     >
       <div
+        ref={videoAreaRef}
         className="w-full max-w-3xl overflow-hidden rounded-2xl bg-surface shadow-[var(--shadow-md)]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -271,6 +350,22 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
             <span className="w-9 shrink-0 text-[11px] tabular-nums text-ink-dim">
               {formatTime(duration)}
             </span>
+            <button
+              type="button"
+              onClick={toggleMute}
+              className="shrink-0 rounded-full p-1.5 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
+              aria-label={muted ? "בטל השתקה" : "השתק"}
+            >
+              {muted ? <VolumeMutedIcon /> : <VolumeIcon />}
+            </button>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="shrink-0 rounded-full p-1.5 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
+              aria-label={fullscreen ? "צא ממסך מלא" : "מסך מלא"}
+            >
+              {fullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+            </button>
           </div>
 
           <div className="hidden items-center gap-2 ps-9 sm:flex">
