@@ -169,6 +169,7 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
             if (destroyed) return;
             playerRef.current = e.target;
             setDuration(e.target.getDuration());
+            e.target.setVolume(100);
             e.target.playVideo();
           },
           onStateChange: (e) => {
@@ -272,7 +273,7 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
             </span>
           </div>
 
-          <div className="flex items-center gap-2 ps-9">
+          <div className="hidden items-center gap-2 ps-9 sm:flex">
             <VolumeIcon />
             <input
               type="range"
