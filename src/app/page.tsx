@@ -1,13 +1,18 @@
 import ArchiveBrowser from "@/components/ArchiveBrowser";
 import Header from "@/components/Header";
-import archiveData from "@/data/archive.json";
-import type { ArchiveItem } from "@/types/archive";
+import { getArchiveItems } from "@/lib/getArchive";
 
-export default function Home() {
+// Content is fetched from Blob on every request (see getArchiveItems), so
+// new audio/video published by the ingestion pipeline shows up without a
+// code deploy - this page must not be statically cached.
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const archiveData = await getArchiveItems();
   return (
     <>
       <Header />
-      <ArchiveBrowser items={archiveData as ArchiveItem[]} />
+      <ArchiveBrowser items={archiveData} />
     </>
   );
 }
