@@ -139,7 +139,7 @@ function highlightTitle(title: string, query: string) {
   );
 }
 
-function Row({
+export function Row({
   item,
   query,
   onOpenVideo,

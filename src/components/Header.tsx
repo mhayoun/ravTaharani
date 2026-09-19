@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Logo from "./Logo";
 
 export default function Header() {
@@ -13,6 +14,12 @@ export default function Header() {
             ארכיון שיעורים - וידאו, אודיו וספרים
           </p>
         </div>
+        <Link
+          href="/latest"
+          className="ms-auto shrink-0 rounded-full border border-gold/60 px-3 py-1.5 text-[12.5px] font-semibold text-[#faf7f1] transition-colors hover:bg-white/10 sm:text-[13.5px]"
+        >
+          שיעורים אחרונים
+        </Link>
       </div>
     </header>
   );
