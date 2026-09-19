@@ -211,12 +211,22 @@ export async function GET(req: NextRequest) {
 
     async function init() {
       showStatus("טוען...");
+      // Download the whole file ourselves, in parallel with loading pdf.js,
+      // and hand pdf.js the bytes. Letting pdf.js load by URL uses its
+      // range/streaming requests, which stalled for a minute or more against
+      // the blob storage host. A plain fetch takes ~2s cold and is served
+      // from the HTTP cache afterwards.
+      const dataPromise = fetch(state.url).then((r) => {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.arrayBuffer();
+      });
+      dataPromise.catch(() => {});
       const pdfjsLib = await import("/pdf.mjs");
       window.__pdfjsLib = pdfjsLib;
       pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
       try {
         state.doc = await pdfjsLib.getDocument({
-          url: state.url,
+          data: new Uint8Array(await dataPromise),
           cMapUrl: "/cmaps/",
           cMapPacked: true,
           standardFontDataUrl: "/standard_fonts/",
