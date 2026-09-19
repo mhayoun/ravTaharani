@@ -161,14 +161,25 @@ export async function GET(req: NextRequest) {
       const scale = Math.min(2.2, Math.max(0.6, (containerWidth - 32) / baseViewport.width));
       const viewport = pdfPage.getViewport({ scale });
 
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
+      // Render the bitmap at device resolution (at least 2x, so text stays
+      // sharp on HiDPI/mobile screens and when zoomed), while the element's
+      // CSS size stays at the layout size, so the text layer still lines up.
+      const outputScale = Math.max(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(viewport.width * outputScale);
+      canvas.height = Math.floor(viewport.height * outputScale);
+      canvas.style.width = viewport.width + "px";
+      canvas.style.height = viewport.height + "px";
       const ctx = canvas.getContext("2d");
       // See the comment at the top of this file: pdf.js's text drawing does
       // not reset CanvasRenderingContext2D.direction, so it must be pinned
       // to "ltr" explicitly, not just via CSS, to avoid inheriting "rtl".
       ctx.direction = "ltr";
-      await pdfPage.render({ canvasContext: ctx, viewport, canvas }).promise;
+      await pdfPage.render({
+        canvasContext: ctx,
+        viewport,
+        canvas,
+        transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined,
+      }).promise;
 
       textLayerDiv.replaceChildren();
       textLayerDiv.style.width = viewport.width + "px";
