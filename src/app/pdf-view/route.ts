@@ -123,6 +123,7 @@ export async function GET(req: NextRequest) {
       query: ${JSON.stringify(query)},
       doc: null,
       numPages: null,
+      fixer: null,
     };
 
     const main = document.querySelector("main");
@@ -194,16 +195,51 @@ export async function GET(req: NextRequest) {
       await textLayer.render();
 
       // One phrase, or several words separated by newlines (the "all the
-      // words" results): a text run is highlighted if it contains any of them.
+      // words" results). Each text run is compared in its logical, decoded
+      // form (the same decoding the search index uses): on pages with
+      // symbolic fonts the raw run is font-encoded and stored backwards, so
+      // matching it directly would never find anything.
       const terms = state.query.split("\\n").map((t) => t.trim().toLowerCase()).filter(Boolean);
       if (terms.length) {
-        let first = null;
-        for (const div of textLayer.textDivs) {
-          const text = (div.textContent || "").toLowerCase();
-          if (terms.some((t) => text.includes(t))) {
-            div.classList.add("pdf-search-match");
-            if (!first) first = div;
+        const fixer = state.fixer;
+        const runTexts = textLayer.textContentItemsStr.map((s) =>
+          (fixer ? fixer.logicalItem(s).text : s).toLowerCase()
+        );
+        // Join the runs the way the search index does (space-separated,
+        // whitespace collapsed), remembering which run each character came
+        // from, so a phrase that wraps across runs is found as a whole and
+        // only the runs it actually spans get highlighted.
+        let joined = "";
+        const owner = [];
+        runTexts.forEach((text, i) => {
+          for (const ch of " " + text) {
+            const c = /\\s/.test(ch) ? " " : ch;
+            if (c === " " && (joined === "" || joined.endsWith(" "))) continue;
+            joined += c;
+            for (let k = 0; k < c.length; k++) owner.push(i);
           }
+        });
+
+        let first = null;
+        function markOccurrencesOf(list) {
+          const hit = new Set();
+          for (const term of list) {
+            for (let at = joined.indexOf(term); at !== -1; at = joined.indexOf(term, at + term.length)) {
+              for (let k = at; k < at + term.length; k++) hit.add(owner[k]);
+            }
+          }
+          for (const i of [...hit].sort((a, b) => a - b)) {
+            const div = textLayer.textDivs[i];
+            div.classList.add("pdf-search-match");
+            first ??= div;
+          }
+          return hit.size;
+        }
+        // If even the whole phrase isn't there (e.g. a word sits between the
+        // words), highlight the runs holding its individual words instead.
+        if (!markOccurrencesOf(terms)) {
+          const words = new Set(terms.flatMap((t) => t.split(/\\s+/)).filter((w) => w.length >= 2));
+          markOccurrencesOf([...words]);
         }
         first?.scrollIntoView({ block: "center", behavior: "smooth" });
       }
@@ -223,6 +259,14 @@ export async function GET(req: NextRequest) {
         return r.arrayBuffer();
       });
       dataPromise.catch(() => {});
+      // Shared with the index builder; if it fails to load, highlighting
+      // just falls back to the raw text (fine for logical-order pages).
+      const fixerPromise = Promise.all([
+        import("/pdf-text.mjs"),
+        fetch("/cp1255-table.json").then((r) => r.json()),
+      ])
+        .then(([mod, table]) => mod.createTextFixer(table))
+        .catch(() => null);
       const pdfjsLib = await import("/pdf.mjs");
       window.__pdfjsLib = pdfjsLib;
       pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
@@ -238,6 +282,7 @@ export async function GET(req: NextRequest) {
         showStatus("אירעה שגיאה בטעינת הקובץ.");
         throw e;
       }
+      state.fixer = await fixerPromise;
       showPage();
       await renderPage();
     }
