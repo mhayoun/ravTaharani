@@ -163,8 +163,8 @@ function FullscreenExitIcon() {
 // transparent overlay blocking all direct interaction with the underlying
 // YouTube surface (its own play/pause, related-video screens, logo link,
 // etc.) - playback is only controllable through this component's own UI:
-// play/seek in the header above the video, mute/volume/fullscreen in the
-// footer below it.
+// play/seek in the header above the video (hidden in full screen),
+// mute/volume/fullscreen in the footer below it.
 export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
   const videoId = youtubeVideoId(url);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -311,48 +311,51 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
         className="w-full max-w-3xl overflow-hidden rounded-2xl bg-surface shadow-[var(--shadow-md)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex flex-col gap-2 border-b border-border bg-surface-2 px-3 py-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-[13px] font-semibold text-ink">{title}</span>
-            <button
-              type="button"
-              onClick={onClose}
-              className="shrink-0 rounded-full p-2 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
-              aria-label="סגור"
-            >
-              <CloseIcon />
-            </button>
-          </div>
+        {/* Hidden in full screen so only the video (and the footer controls) show. */}
+        {!fullscreen && (
+          <div className="flex flex-col gap-2 border-b border-border bg-surface-2 px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-[13px] font-semibold text-ink">{title}</span>
+              <button
+                type="button"
+                onClick={onClose}
+                className="shrink-0 rounded-full p-2 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
+                aria-label="סגור"
+              >
+                <CloseIcon />
+              </button>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={togglePlay}
-              className="shrink-0 rounded-full p-1.5 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
-              aria-label={playing ? "השהה" : "נגן"}
-            >
-              {playing ? <PauseIcon /> : <PlayIcon />}
-            </button>
-            <span className="w-9 shrink-0 text-[11px] tabular-nums text-ink-dim">
-              {formatTime(current)}
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              step={1}
-              value={current}
-              onChange={onSeekInput}
-              onMouseUp={commitSeek}
-              onTouchEnd={commitSeek}
-              className="h-1.5 flex-1 accent-accent"
-              aria-label="מיקום בסרטון"
-            />
-            <span className="w-9 shrink-0 text-[11px] tabular-nums text-ink-dim">
-              {formatTime(duration)}
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={togglePlay}
+                className="shrink-0 rounded-full p-1.5 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
+                aria-label={playing ? "השהה" : "נגן"}
+              >
+                {playing ? <PauseIcon /> : <PlayIcon />}
+              </button>
+              <span className="w-9 shrink-0 text-[11px] tabular-nums text-ink-dim">
+                {formatTime(current)}
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={duration || 0}
+                step={1}
+                value={current}
+                onChange={onSeekInput}
+                onMouseUp={commitSeek}
+                onTouchEnd={commitSeek}
+                className="h-1.5 flex-1 accent-accent"
+                aria-label="מיקום בסרטון"
+              />
+              <span className="w-9 shrink-0 text-[11px] tabular-nums text-ink-dim">
+                {formatTime(duration)}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="relative aspect-video w-full bg-black">
           {videoId ? (
