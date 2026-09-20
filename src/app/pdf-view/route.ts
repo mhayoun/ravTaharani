@@ -193,12 +193,14 @@ export async function GET(req: NextRequest) {
       });
       await textLayer.render();
 
-      const q = state.query.trim().toLowerCase();
-      if (q) {
+      // One phrase, or several words separated by newlines (the "all the
+      // words" results): a text run is highlighted if it contains any of them.
+      const terms = state.query.split("\\n").map((t) => t.trim().toLowerCase()).filter(Boolean);
+      if (terms.length) {
         let first = null;
         for (const div of textLayer.textDivs) {
-          const text = div.textContent || "";
-          if (text.toLowerCase().includes(q)) {
+          const text = (div.textContent || "").toLowerCase();
+          if (terms.some((t) => text.includes(t))) {
             div.classList.add("pdf-search-match");
             if (!first) first = div;
           }

@@ -25,4 +25,10 @@ export interface PdfMatch {
   before: string;
   match: string;
   after: string;
+  /** Set for "all the words, not as a phrase" results: the individual query
+   * words to highlight inside `match`, which is then the shortest stretch of
+   * page text containing all of them. */
+  words?: string[];
+  /** Length in characters of that stretch (used to rank such results). */
+  span?: number;
 }

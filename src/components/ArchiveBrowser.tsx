@@ -474,7 +474,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
           url={pdfViewer.url}
           title={pdfViewer.title}
           initialPage={pdfViewer.page}
-          query={pdfViewer.match}
+          query={pdfViewer.words ? pdfViewer.words.join("\n") : pdfViewer.match}
           onClose={() => setPdfViewer(null)}
         />
       )}
