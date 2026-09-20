@@ -37,6 +37,67 @@ function fixSymbolicEncoding(text) {
   return out;
 }
 
+// The same symbolic-font items are also stored in *visual* order: pdf.js
+// hands back their glyphs left-to-right as drawn, so once decoded the Hebrew
+// reads backwards (e.g. "הכלה" instead of "הלכה"). Items that already carry
+// real Hebrew Unicode (dir "rtl") are in logical order and are left alone.
+const HEBREW = /[\u0590-\u05ff]/;
+const MIRRORED = { "(": ")", ")": "(", "[": "]", "]": "[", "{": "}", "}": "{", "<": ">", ">": "<" };
+// A number or Latin word, allowing separators inside it ("1,000", "12.5").
+const LTR_RUN = /[0-9A-Za-z]+(?:[.,:/\-][0-9A-Za-z]+)*/g;
+
+function visualToLogical(text) {
+  const reversed = [...text].reverse().map((ch) => MIRRORED[ch] ?? ch).join("");
+  // Digits and Latin were drawn left-to-right; reversing flipped them too.
+  return reversed.replace(LTR_RUN, (run) => [...run].reverse().join(""));
+}
+
+// Some fonts also encode brackets by the glyph drawn, so in a logical-order
+// Hebrew item "(אות נו)" arrives as ")אות נו(". Swap them back, but only for
+// items that are consistently mirrored, so PDFs with correct brackets are
+// left untouched.
+const MIRRORED_BRACKET = /\)[\u05d0-\u05ea]|[\u05d0-\u05ea]\(/;
+const NORMAL_BRACKET = /\([\u05d0-\u05ea]|[\u05d0-\u05ea]\)/;
+
+function unmirrorBrackets(text) {
+  if (!MIRRORED_BRACKET.test(text) || NORMAL_BRACKET.test(text)) return text;
+  return text.replace(/[()[\]{}<>]/g, (ch) => MIRRORED[ch]);
+}
+
+/** Turns a page's text items into logical-order text. */
+function pageText(items) {
+  const parts = []; // { text, visual, x, y }
+  for (const it of items) {
+    if (!("str" in it)) continue;
+    const decoded = fixSymbolicEncoding(it.str);
+    const visual = !HEBREW.test(it.str) && HEBREW.test(decoded);
+    parts.push({
+      text: visual ? decoded : unmirrorBrackets(decoded),
+      visual,
+      x: it.transform[4],
+      y: it.transform[5],
+    });
+  }
+
+  const out = [];
+  for (let i = 0; i < parts.length; ) {
+    if (!parts[i].visual) {
+      out.push(parts[i].text);
+      i++;
+      continue;
+    }
+    // A run of consecutive visual items on one line: a heading's word can be
+    // split into small fragments listed left-to-right, so besides reversing
+    // each item's characters, read the fragments right-to-left (x descending).
+    let j = i;
+    while (j < parts.length && parts[j].visual && Math.abs(parts[j].y - parts[i].y) < 2) j++;
+    const run = parts.slice(i, j).sort((a, b) => b.x - a.x);
+    for (const part of run) out.push(visualToLogical(part.text));
+    i = j;
+  }
+  return out.join(" ").replace(/\s+/g, " ").trim();
+}
+
 // ASCII-only id derived from the URL, so the JSON file is safe as a static
 // asset path regardless of the (Hebrew) title.
 function slugify(url) {
@@ -64,13 +125,7 @@ async function indexPdf(item) {
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);
     const content = await page.getTextContent();
-    const text = fixSymbolicEncoding(
-      content.items
-        .map((it) => ("str" in it ? it.str : ""))
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim()
-    );
+    const text = pageText(content.items);
     if (text) pages.push({ page: p, text });
     page.cleanup();
     if (p % 100 === 0) console.log(`  ${p}/${doc.numPages}`);
