@@ -6,10 +6,13 @@ export interface ArchiveItem {
   category: string;
   subcategory: string | null;
   upload_date: string | null;
-  /** YouTube link for video, Vercel Blob public URL for audio/pdf */
+  /** YouTube link for YouTube videos, Vercel Blob public URL for audio/pdf
+   * and for video files synced from Google Drive */
   url?: string;
   duration_seconds?: number | null;
   pages?: number | null;
   format?: string;
   author?: string | null;
+  /** "drive" for files synced from Google Drive (code_python/drive_sync.py) */
+  source?: "drive";
 }

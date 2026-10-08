@@ -59,6 +59,14 @@ function DocumentIcon() {
   );
 }
 
+function PlayTileIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden="true">
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+}
+
 function Tile({ item }: { item: ArchiveItem }) {
   if (item.type === "video") {
     const thumb = youtubeThumbnail(item.url);
@@ -78,12 +86,16 @@ function Tile({ item }: { item: ArchiveItem }) {
     }
   }
   const tileClass =
-    item.type === "audio" ? "bg-audio-bg text-audio-ink" : "bg-pdf-bg text-pdf-ink";
+    item.type === "video"
+      ? "bg-surface-2 text-ink-dim"
+      : item.type === "audio"
+        ? "bg-audio-bg text-audio-ink"
+        : "bg-pdf-bg text-pdf-ink";
   return (
     <span
       className={`flex h-[45px] w-20 shrink-0 items-center justify-center rounded-lg shadow-[var(--shadow-sm)] sm:h-[50px] sm:w-[88px] ${tileClass}`}
     >
-      {item.type === "audio" ? <HeadphonesIcon /> : <DocumentIcon />}
+      {item.type === "video" ? <PlayTileIcon /> : item.type === "audio" ? <HeadphonesIcon /> : <DocumentIcon />}
     </span>
   );
 }

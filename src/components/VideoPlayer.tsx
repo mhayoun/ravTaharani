@@ -50,6 +50,31 @@ declare global {
   }
 }
 
+// Adapts an HTML5 <video> (Drive videos hosted on Vercel Blob) to the same
+// interface as the YouTube player, so both share all the controls below.
+function html5Player(video: HTMLVideoElement): YTPlayer {
+  return {
+    playVideo: () => void video.play().catch(() => {}),
+    pauseVideo: () => video.pause(),
+    seekTo: (seconds) => {
+      video.currentTime = seconds;
+    },
+    getCurrentTime: () => video.currentTime,
+    getDuration: () => video.duration,
+    setVolume: (volume) => {
+      video.volume = volume / 100;
+    },
+    mute: () => {
+      video.muted = true;
+    },
+    unMute: () => {
+      video.muted = false;
+    },
+    isMuted: () => video.muted,
+    destroy: () => video.pause(),
+  };
+}
+
 let apiLoadPromise: Promise<YTNamespace> | null = null;
 function loadYouTubeIframeApi(): Promise<YTNamespace> {
   if (window.YT?.Player) return Promise.resolve(window.YT);
@@ -164,10 +189,13 @@ function FullscreenExitIcon() {
 // YouTube surface (its own play/pause, related-video screens, logo link,
 // etc.) - playback is only controllable through this component's own UI:
 // play/seek in the header above the video (hidden in full screen),
-// mute/volume/fullscreen in the footer below it.
+// mute/volume/fullscreen in the footer below it. Non-YouTube URLs (video
+// files from Google Drive, hosted on Vercel Blob) play in a native <video>
+// driven by the same controls.
 export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
   const videoId = youtubeVideoId(url);
   const containerRef = useRef<HTMLDivElement>(null);
+  const html5VideoRef = useRef<HTMLVideoElement>(null);
   const videoAreaRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const seekingRef = useRef(false);
@@ -253,6 +281,37 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
       playerRef.current = null;
     };
   }, [videoId]);
+
+  useEffect(() => {
+    const video = html5VideoRef.current;
+    if (videoId || !video) return;
+    const player = html5Player(video);
+    playerRef.current = player;
+
+    const onDuration = () => setDuration(video.duration);
+    const onPlayState = () => setPlaying(!video.paused && !video.ended);
+    const onTime = () => {
+      if (!seekingRef.current) setCurrent(video.currentTime);
+    };
+    video.addEventListener("loadedmetadata", onDuration);
+    video.addEventListener("durationchange", onDuration);
+    video.addEventListener("play", onPlayState);
+    video.addEventListener("pause", onPlayState);
+    video.addEventListener("ended", onPlayState);
+    video.addEventListener("timeupdate", onTime);
+    player.playVideo();
+
+    return () => {
+      video.removeEventListener("loadedmetadata", onDuration);
+      video.removeEventListener("durationchange", onDuration);
+      video.removeEventListener("play", onPlayState);
+      video.removeEventListener("pause", onPlayState);
+      video.removeEventListener("ended", onPlayState);
+      video.removeEventListener("timeupdate", onTime);
+      player.destroy();
+      playerRef.current = null;
+    };
+  }, [videoId, url]);
 
   function togglePlay() {
     const p = playerRef.current;
@@ -364,6 +423,15 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
               {/* Blocks all direct interaction with the YouTube player underneath */}
               <div className="absolute inset-0" />
             </>
+          ) : url ? (
+            <video
+              ref={html5VideoRef}
+              src={url}
+              playsInline
+              preload="metadata"
+              onClick={togglePlay}
+              className="absolute inset-0 h-full w-full"
+            />
           ) : (
             <p className="flex h-full items-center justify-center p-6 text-center text-ink-dim">
               לא ניתן לטעון את הסרטון
