@@ -91,7 +91,13 @@ async function publishDriveItems(items, existingDriveById) {
     }
 
     const prior = existingDriveById.get(item.drive_id);
-    if (prior?.url && prior.drive_modified === item.drive_modified) {
+    // Same Drive version and same published name - a changed name (e.g. an
+    // improved filename cleanup) re-uploads under the new name.
+    if (
+      prior?.url &&
+      prior.drive_modified === item.drive_modified &&
+      prior.filename === item.filename
+    ) {
       item.url = prior.url;
       reused++;
     } else {
