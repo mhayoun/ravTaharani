@@ -13,6 +13,8 @@ export interface ArchiveItem {
   pages?: number | null;
   format?: string;
   author?: string | null;
-  /** "drive" for files synced from Google Drive (code_python/drive_sync.py) */
-  source?: "drive";
+  /** "drive" for files synced from Google Drive (code_python/drive_sync.py),
+   * "kolhalashon" for lessons linked to kolhalashon.com
+   * (scripts/import-kolhalashon.mjs) - their url is the lesson's page there */
+  source?: "drive" | "kolhalashon";
 }

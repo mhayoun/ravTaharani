@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { ArchiveItem, ArchiveItemType } from "@/types/archive";
 import type { PdfMatch } from "@/types/pdfSearch";
-import { CATEGORY_ORDER, SUBCATEGORY_ORDER, TYPE_LABEL } from "@/lib/subcategoryOrder";
+import { CATEGORY_ORDER, SUBCATEGORY_ORDER, TYPE_LABEL, orderSubcategories } from "@/lib/subcategoryOrder";
 import { youtubeThumbnail } from "@/lib/youtube";
 import PdfSearch from "./PdfSearch";
 import PdfViewer from "./PdfViewer";
@@ -179,9 +179,26 @@ export function Row({
             {TYPE_LABEL[item.type]}
           </span>
           <span className="text-xs tabular-nums text-ink-dim">{formatDate(item.upload_date)}</span>
+          {item.source === "kolhalashon" && (
+            <span className="rounded-full border border-border px-1.5 text-[11px] text-ink-dim">קול הלשון</span>
+          )}
         </div>
 
-        {item.type === "video" && (
+        {item.source === "kolhalashon" && (
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-[14.5px] leading-snug text-ink hover:text-accent hover:underline"
+          >
+            {titleNode}
+            <span className="text-xs text-ink-dim">
+              {item.duration_seconds ? ` · ${formatDuration(item.duration_seconds)}` : ""} · האזנה בקול הלשון ↗
+            </span>
+          </a>
+        )}
+
+        {item.type === "video" && item.source !== "kolhalashon" && (
           <button
             type="button"
             onClick={() => onOpenVideo?.(item)}
@@ -203,7 +220,7 @@ export function Row({
           </a>
         )}
 
-        {item.type === "audio" && (
+        {item.type === "audio" && item.source !== "kolhalashon" && (
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
             <span className="text-[14.5px] leading-snug text-ink">
               {titleNode}
@@ -246,8 +263,14 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
   const titleMatches = useMemo(() => {
     const q = query.trim().replace(/\s+/g, " ").toLowerCase();
     if (q.length < 2) return [];
+    // Also matches the displayed date (e.g. "2020-12") and the source badge
+    // ("קול הלשון"), so lessons can be found by date or by where they come from.
     return categoryTopicScoped.filter(
-      (i) => (i.type === "video" || i.type === "audio") && i.title.toLowerCase().includes(q)
+      (i) =>
+        (i.type === "video" || i.type === "audio") &&
+        (i.title.toLowerCase().includes(q) ||
+          formatDate(i.upload_date).includes(q) ||
+          (i.source === "kolhalashon" && "קול הלשון".includes(q)))
     );
   }, [categoryTopicScoped, query]);
 
@@ -273,7 +296,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
   const bySub = useMemo(() => groupBy(activeCategoryItems, (i) => i.subcategory ?? ""), [activeCategoryItems]);
   const subKeys = Object.keys(bySub);
   const usesTopics = subOrder ? true : subKeys.length > 1 || (subKeys.length === 1 && subKeys[0] !== "");
-  const topicOrder = subOrder ?? subKeys;
+  const topicOrder = orderSubcategories(subOrder, subKeys);
 
   const counts = {
     all: items.length,
@@ -305,7 +328,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="חיפוש לפי כותרת לוידאו/אודיו ולפי תוכן לספרים..."
+            placeholder="חיפוש לפי כותרת או תאריך לוידאו/אודיו ולפי תוכן לספרים..."
             className="w-full rounded-xl border border-border bg-bg px-4 py-2.5 pe-10 text-[15px] text-ink outline-none placeholder:text-ink-dim focus:border-accent"
           />
         </div>
@@ -398,7 +421,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
           <summary className="flex cursor-pointer items-center justify-between gap-2.5 border-b border-border bg-surface-2 px-4.5 py-3.5 [&::-webkit-details-marker]:hidden">
             <h2 className="flex items-center gap-2 text-[19px] font-bold">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold" aria-hidden="true" />
-              וידאו ואודיו עם &quot;{query.trim()}&quot; בכותרת
+              וידאו ואודיו עם &quot;{query.trim()}&quot; בכותרת או בתאריך
             </h2>
             <span className="whitespace-nowrap text-[13px] tabular-nums text-ink-dim">{titleMatches.length}</span>
           </summary>
@@ -426,7 +449,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
             const catSubKeys = Object.keys(catBySub);
             const catUsesTopics =
               catSubOrder ? true : catSubKeys.length > 1 || (catSubKeys.length === 1 && catSubKeys[0] !== "");
-            const catTopicOrder = catSubOrder ?? catSubKeys;
+            const catTopicOrder = orderSubcategories(catSubOrder, catSubKeys);
 
             const visibleTopic = category === cat ? topic : "all";
 
