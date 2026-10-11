@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import type { ArchiveItem, ArchiveItemType } from "@/types/archive";
+import type { ArchiveItem } from "@/types/archive";
 import type { PdfMatch } from "@/types/pdfSearch";
 import { CATEGORY_ORDER, SUBCATEGORY_ORDER, TYPE_LABEL, orderSubcategories } from "@/lib/subcategoryOrder";
 import { youtubeThumbnail } from "@/lib/youtube";
@@ -275,17 +276,89 @@ export function Row({
   );
 }
 
+const SOURCE_OPTIONS = [
+  { key: "youtube", label: "YouTube" },
+  { key: "drive", label: "Google Drive" },
+  { key: "kolhalashon", label: "קול הלשון" },
+  { key: "kolbarama", label: "קול ברמה" },
+  { key: "site", label: "קבצי האתר" },
+] as const;
+
+type SourceKey = (typeof SOURCE_OPTIONS)[number]["key"];
+
+/** Where an item can be listened to / read: a lesson merged from two sites
+ * counts for both. */
+function itemSources(item: ArchiveItem): SourceKey[] {
+  if (item.source === "drive") return ["drive"];
+  if (item.source === "kolhalashon")
+    return item.alt_source === "kolbarama" ? ["kolhalashon", "kolbarama"] : ["kolhalashon"];
+  if (item.source === "kolbarama") return ["kolbarama"];
+  // Everything else is a YouTube video or an audio/PDF file uploaded to Blob
+  // (scripts/upload-media.mjs).
+  return item.type === "video" ? ["youtube"] : ["site"];
+}
+
+/** By upload_date (YYYYMMDD), undated items last either way. */
+function sortByDate(list: ArchiveItem[], order: "newest" | "oldest"): ArchiveItem[] {
+  return [...list].sort((a, b) => {
+    if (!a.upload_date || !b.upload_date) return a.upload_date ? -1 : b.upload_date ? 1 : 0;
+    const cmp = a.upload_date.localeCompare(b.upload_date);
+    return order === "newest" ? -cmp : cmp;
+  });
+}
+
+type FilterParam = "source" | "sort" | "type" | "cat" | "topic" | "q";
+
+/** Writes filters into the address (defaults left out), so a search can be
+ * shared, bookmarked and survives a reload. Filter changes push a history
+ * entry so "back" undoes them; typing in the search box only replaces it. */
+function updateUrl(changes: Partial<Record<FilterParam, string | null>>, mode: "push" | "replace") {
+  const params = new URLSearchParams(window.location.search);
+  for (const [key, value] of Object.entries(changes)) {
+    if (value === null || value === undefined || value === "" || value === "all" || (key === "sort" && value === "topic"))
+      params.delete(key);
+    else params.set(key, value);
+  }
+  const qs = params.toString();
+  const url = qs ? `?${qs}` : window.location.pathname;
+  if (mode === "push") window.history.pushState(null, "", url);
+  else window.history.replaceState(null, "", url);
+}
+
+function oneOf<T extends string>(value: string | null, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? (value as T) : fallback;
+}
+
+const SELECT_CLASS =
+  "rounded-xl border border-border bg-bg px-3 py-2 text-[14px] text-ink outline-none focus:border-accent";
+
 export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
-  const [type, setType] = useState<"all" | ArchiveItemType>("all");
-  const [category, setCategory] = useState<string>("all");
-  const [topic, setTopic] = useState<string>("all");
-  const [query, setQuery] = useState("");
+  // Filters live in the address (see updateUrl); only the search text is
+  // also kept in state, so typing never waits on a router update.
+  const searchParams = useSearchParams();
+  const source = oneOf(searchParams.get("source"), ["all", ...SOURCE_OPTIONS.map((o) => o.key)], "all");
+  const sort = oneOf(searchParams.get("sort"), ["topic", "newest", "oldest"] as const, "topic");
+  const type = oneOf(searchParams.get("type"), ["all", "video", "audio", "pdf"] as const, "all");
+  const category = searchParams.get("cat") ?? "all";
+  const topic = searchParams.get("topic") ?? "all";
+  const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [pdfViewer, setPdfViewer] = useState<PdfMatch | null>(null);
   const [videoPlayer, setVideoPlayer] = useState<ArchiveItem | null>(null);
 
+  const sourceCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const item of items) for (const s of itemSources(item)) counts[s] = (counts[s] ?? 0) + 1;
+    return counts;
+  }, [items]);
+
+  const sourced = useMemo(
+    () => (source === "all" ? items : items.filter((i) => itemSources(i).includes(source))),
+    [items, source]
+  );
+
   const scoped = useMemo(
-    () => (type === "all" ? items : items.filter((i) => i.type === type)),
-    [items, type]
+    () => (type === "all" ? sourced : sourced.filter((i) => i.type === type)),
+    [sourced, type]
   );
 
   // Also scoped by the selected category/topic chips, so a search made
@@ -300,17 +373,25 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
   const titleMatches = useMemo(() => {
     const q = query.trim().replace(/\s+/g, " ").toLowerCase();
     if (q.length < 2) return [];
-    // Also matches the displayed date (e.g. "2020-12") and the source badges
-    // ("קול הלשון", "קול ברמה"), so lessons can be found by date or by where
-    // they come from.
-    return categoryTopicScoped.filter(
+    // Also matches the displayed date (e.g. "2020-12"), the source badges
+    // ("קול הלשון", "קול ברמה") and where the lesson is filed ("אמור" finds
+    // every lesson under פרשת אמור, even when its title doesn't say so).
+    const matches = categoryTopicScoped.filter(
       (i) =>
         (i.type === "video" || i.type === "audio") &&
         (i.title.toLowerCase().includes(q) ||
           formatDate(i.upload_date).includes(q) ||
-          externalLabels(i).some((label) => label.includes(q)))
+          externalLabels(i).some((label) => label.includes(q)) ||
+          i.category.includes(q) ||
+          (i.subcategory ?? "").includes(q))
     );
-  }, [categoryTopicScoped, query]);
+    return sort === "topic" ? matches : sortByDate(matches, sort);
+  }, [categoryTopicScoped, query, sort]);
+
+  const dateSorted = useMemo(
+    () => (sort === "topic" ? [] : sortByDate(categoryTopicScoped, sort)),
+    [categoryTopicScoped, sort]
+  );
 
   const pdfSearchUrls = useMemo(
     () =>
@@ -337,38 +418,62 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
   const topicOrder = orderSubcategories(subOrder, subKeys);
 
   const counts = {
-    all: items.length,
-    video: items.filter((i) => i.type === "video").length,
-    audio: items.filter((i) => i.type === "audio").length,
-    pdf: items.filter((i) => i.type === "pdf").length,
+    all: sourced.length,
+    video: sourced.filter((i) => i.type === "video").length,
+    audio: sourced.filter((i) => i.type === "audio").length,
+    pdf: sourced.filter((i) => i.type === "pdf").length,
   };
 
   return (
     <div className="mx-auto max-w-[920px] px-4 pb-10">
-      <p className="py-5 text-[14.5px] text-ink-dim">
-        סה&quot;כ <b className="text-ink tabular-nums">{items.length}</b> פריטים (
-        {counts.video} וידאו · {counts.audio} אודיו · {counts.pdf} ספרים), ממוינים לפי תאריך
-        ומקובצים לפי נושא
-      </p>
-
-      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-border bg-surface p-3.5 shadow-[var(--shadow-md)] sm:p-4">
-        <div className="relative">
-          <svg
-            viewBox="0 0 24 24"
-            className="pointer-events-none absolute end-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-ink-dim"
-            fill="none"
-            aria-hidden="true"
+      <div className="mb-5 mt-5 flex flex-col gap-3 rounded-2xl border border-border bg-surface p-3.5 shadow-[var(--shadow-md)] sm:p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            aria-label="מקור"
+            value={source}
+            onChange={(e) => {
+              updateUrl({ source: e.target.value, cat: null, topic: null }, "push");
+            }}
+            className={SELECT_CLASS}
           >
-            <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-            <path d="M20 20l-4.3-4.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="חיפוש לפי כותרת או תאריך לוידאו/אודיו ולפי תוכן לספרים..."
-            className="w-full rounded-xl border border-border bg-bg px-4 py-2.5 pe-10 text-[15px] text-ink outline-none placeholder:text-ink-dim focus:border-accent"
-          />
+            <option value="all">כל המקורות ({items.length})</option>
+            {SOURCE_OPTIONS.filter((o) => sourceCounts[o.key]).map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label} ({sourceCounts[o.key]})
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="מיון"
+            value={sort}
+            onChange={(e) => updateUrl({ sort: e.target.value }, "push")}
+            className={SELECT_CLASS}
+          >
+            <option value="topic">לפי נושא</option>
+            <option value="newest">מהחדש לישן</option>
+            <option value="oldest">מהישן לחדש</option>
+          </select>
+          <div className="relative min-w-[200px] flex-1">
+            <svg
+              viewBox="0 0 24 24"
+              className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-dim"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M20 20l-4.3-4.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                updateUrl({ q: e.target.value.trim() ? e.target.value : null }, "replace");
+              }}
+              placeholder="חיפוש לפי כותרת, תאריך או תוכן הספרים..."
+              className="w-full rounded-xl border border-border bg-bg px-3.5 py-2 pe-9 text-[14px] text-ink outline-none placeholder:text-ink-dim focus:border-accent"
+            />
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -377,9 +482,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
             count={counts.all}
             active={type === "all"}
             onClick={() => {
-              setType("all");
-              setCategory("all");
-              setTopic("all");
+              updateUrl({ type: "all", cat: null, topic: null }, "push");
             }}
           />
           <Chip
@@ -387,9 +490,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
             count={counts.video}
             active={type === "video"}
             onClick={() => {
-              setType("video");
-              setCategory("all");
-              setTopic("all");
+              updateUrl({ type: "video", cat: null, topic: null }, "push");
             }}
           />
           <Chip
@@ -398,9 +499,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
             active={type === "audio"}
             variant="audio"
             onClick={() => {
-              setType("audio");
-              setCategory("all");
-              setTopic("all");
+              updateUrl({ type: "audio", cat: null, topic: null }, "push");
             }}
           />
           <Chip
@@ -409,9 +508,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
             active={type === "pdf"}
             variant="pdf"
             onClick={() => {
-              setType("pdf");
-              setCategory("all");
-              setTopic("all");
+              updateUrl({ type: "pdf", cat: null, topic: null }, "push");
             }}
           />
         </div>
@@ -423,8 +520,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
               count={scoped.length}
               active={category === "all"}
               onClick={() => {
-                setCategory("all");
-                setTopic("all");
+                updateUrl({ cat: null, topic: null }, "push");
               }}
             />
             {categories.map((cat) => (
@@ -434,8 +530,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
                 count={byCategory[cat].length}
                 active={category === cat}
                 onClick={() => {
-                  setCategory(cat);
-                  setTopic("all");
+                  updateUrl({ cat, topic: null }, "push");
                 }}
               />
             ))}
@@ -444,11 +539,11 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
 
         {!query.trim() && usesTopics && category !== "all" && (
           <div className="flex flex-wrap gap-2">
-            <Chip label="הכל" count={activeCategoryItems.length} active={topic === "all"} onClick={() => setTopic("all")} />
+            <Chip label="הכל" count={activeCategoryItems.length} active={topic === "all"} onClick={() => updateUrl({ topic: null }, "push")} />
             {topicOrder
               .filter((t) => bySub[t]?.length)
               .map((t) => (
-                <Chip key={t} label={t} count={bySub[t].length} active={topic === t} onClick={() => setTopic(t)} />
+                <Chip key={t} label={t} count={bySub[t].length} active={topic === t} onClick={() => updateUrl({ topic: t }, "push")} />
               ))}
           </div>
         )}
@@ -459,7 +554,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
           <summary className="flex cursor-pointer items-center justify-between gap-2.5 border-b border-border bg-surface-2 px-4.5 py-3.5 [&::-webkit-details-marker]:hidden">
             <h2 className="flex items-center gap-2 text-[19px] font-bold">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold" aria-hidden="true" />
-              וידאו ואודיו עם &quot;{query.trim()}&quot; בכותרת או בתאריך
+              וידאו ואודיו עבור &quot;{query.trim()}&quot;
             </h2>
             <span className="whitespace-nowrap text-[13px] tabular-nums text-ink-dim">{titleMatches.length}</span>
           </summary>
@@ -478,7 +573,16 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
       )}
 
       <main className="mt-4 flex flex-col gap-4">
+        {!query.trim() && sort !== "topic" && dateSorted.length > 0 && (
+          <ul className="overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-sm)]">
+            {dateSorted.map((item) => (
+              <Row key={item.title + item.upload_date} item={item} onOpenVideo={setVideoPlayer} />
+            ))}
+          </ul>
+        )}
+
         {!query.trim() &&
+          sort === "topic" &&
           (category === "all" ? categories : [category]).map((cat) => {
             const catItems = byCategory[cat];
             if (!catItems?.length) return null;
