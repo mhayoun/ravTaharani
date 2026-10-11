@@ -133,6 +133,21 @@ function Chip({
   );
 }
 
+/** Sites whose lessons are linked rather than hosted here
+ * (scripts/import-kolhalashon.mjs). */
+const EXTERNAL_SOURCE_LABEL: Record<string, string> = {
+  kolhalashon: "קול הלשון",
+  kolbarama: "קול ברמה",
+};
+
+/** The external sites an item is linked to: its own source, then the site
+ * of its second link, if any. */
+function externalLabels(item: ArchiveItem): string[] {
+  return [item.source, item.alt_source]
+    .map((s) => (s ? EXTERNAL_SOURCE_LABEL[s] : undefined))
+    .filter((label): label is string => !!label);
+}
+
 function highlightTitle(title: string, query: string) {
   // Collapse whitespace so a pasted sentence with extra/irregular spacing
   // (double spaces, line breaks) still matches as one exact phrase.
@@ -168,6 +183,7 @@ export function Row({
         : "text-ink-dim";
 
   const titleNode = query ? highlightTitle(item.title, query) : item.title;
+  const external = item.source ? EXTERNAL_SOURCE_LABEL[item.source] : undefined;
 
   return (
     <li className="flex items-center gap-3 border-t border-border px-4 py-3 transition-colors first:border-t-0 hover:bg-surface-2/60">
@@ -179,26 +195,47 @@ export function Row({
             {TYPE_LABEL[item.type]}
           </span>
           <span className="text-xs tabular-nums text-ink-dim">{formatDate(item.upload_date)}</span>
-          {item.source === "kolhalashon" && (
-            <span className="rounded-full border border-border px-1.5 text-[11px] text-ink-dim">קול הלשון</span>
-          )}
+          {externalLabels(item).map((label) => (
+            <span key={label} className="rounded-full border border-border px-1.5 text-[11px] text-ink-dim">
+              {label}
+            </span>
+          ))}
         </div>
 
-        {item.source === "kolhalashon" && (
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block text-[14.5px] leading-snug text-ink hover:text-accent hover:underline"
-          >
-            {titleNode}
+        {external && (
+          <div className="text-[14.5px] leading-snug">
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-ink hover:text-accent hover:underline"
+            >
+              {titleNode}
+            </a>
             <span className="text-xs text-ink-dim">
-              {item.duration_seconds ? ` · ${formatDuration(item.duration_seconds)}` : ""} · האזנה בקול הלשון ↗
+              {item.duration_seconds ? ` · ${formatDuration(item.duration_seconds)}` : ""} ·{" "}
+              <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:text-accent hover:underline">
+                האזנה ב{external} ↗
+              </a>
+              {item.alt_url && item.alt_source && (
+                <>
+                  {" "}
+                  ·{" "}
+                  <a
+                    href={item.alt_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-accent hover:underline"
+                  >
+                    {EXTERNAL_SOURCE_LABEL[item.alt_source]} ↗
+                  </a>
+                </>
+              )}
             </span>
-          </a>
+          </div>
         )}
 
-        {item.type === "video" && item.source !== "kolhalashon" && (
+        {item.type === "video" && !external && (
           <button
             type="button"
             onClick={() => onOpenVideo?.(item)}
@@ -220,7 +257,7 @@ export function Row({
           </a>
         )}
 
-        {item.type === "audio" && item.source !== "kolhalashon" && (
+        {item.type === "audio" && !external && (
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
             <span className="text-[14.5px] leading-snug text-ink">
               {titleNode}
@@ -263,14 +300,15 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
   const titleMatches = useMemo(() => {
     const q = query.trim().replace(/\s+/g, " ").toLowerCase();
     if (q.length < 2) return [];
-    // Also matches the displayed date (e.g. "2020-12") and the source badge
-    // ("קול הלשון"), so lessons can be found by date or by where they come from.
+    // Also matches the displayed date (e.g. "2020-12") and the source badges
+    // ("קול הלשון", "קול ברמה"), so lessons can be found by date or by where
+    // they come from.
     return categoryTopicScoped.filter(
       (i) =>
         (i.type === "video" || i.type === "audio") &&
         (i.title.toLowerCase().includes(q) ||
           formatDate(i.upload_date).includes(q) ||
-          (i.source === "kolhalashon" && "קול הלשון".includes(q)))
+          externalLabels(i).some((label) => label.includes(q)))
     );
   }, [categoryTopicScoped, query]);
 

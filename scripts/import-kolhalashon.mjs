@@ -3,6 +3,12 @@
 // which upload-media.mjs merges into the published archive. Nothing is
 // downloaded or re-hosted: each item links to its page on kolhalashon.com.
 //
+// Also merges the Kol Barama "אוצר לשבת" episodes (kolbarama_raw.json, from
+// fetch-kolbarama.mjs): an episode broadcast the same day as a Kol Halashon
+// recording is the same lesson, so it only adds its descriptive title and a
+// second link to that item; the others become their own items
+// (taharani_kolbarama.json).
+//
 // kolhalashon.com sits behind a Cloudflare challenge, so the raw list can't
 // be fetched from a script. To refresh it, open
 // https://www.kolhalashon.com/he/regularSite/ravs/2618 in a browser, run
@@ -39,6 +45,8 @@ const ROOT = path.dirname(new URL(import.meta.url).pathname);
 const RAW_PATH = path.join(ROOT, "kolhalashon_raw.json");
 const OUT_PATH = path.join(ROOT, "taharani_kolhalashon.json");
 const VIDEOS_PATH = path.join(ROOT, "taharani_videos.json");
+const KOLBARAMA_RAW_PATH = path.join(ROOT, "kolbarama_raw.json");
+const KOLBARAMA_OUT_PATH = path.join(ROOT, "taharani_kolbarama.json");
 
 // Kol Halashon's own folder name; the rav-named catch-all folder
 // ("הרב אבישי טהרני - הלכה") is replaced by its sub-folder.
@@ -88,7 +96,7 @@ function skeleton(text) {
 function parashotInTitle(title) {
   const at = title.indexOf("פרשת");
   if (at === -1) return [];
-  const words = title.slice(at + 4).trim().split(/\s+/).map(skeleton);
+  const words = title.slice(at + 4).trim().split(/[\s-]+/).map(skeleton);
   const found = [];
   while (found.length < 2) {
     const next = parshiot
@@ -187,6 +195,61 @@ function durationSeconds(hms) {
   return h * 3600 + m * 60 + s;
 }
 
+// Kol Barama's episode title without its "האזינו:" / "אוצר לשבת |" /
+// rav-name framing, e.g. "האזינו: הרב אבישי טהרני עם עיון עמוק בפרשת לך-לך"
+// -> "עיון עמוק בפרשת לך-לך".
+function kolbaramaTopic(title) {
+  return title
+    .replace(/\|\s*הרב אבישי טהרני\.?\s*האזינו$/, "")
+    .replace(/^(האזינו|אוצר לשבת|אוצר לחג|הרב אבישי טהרני)\s*[:|]\s*/, "")
+    .replace(/^הרב אבישי טהרני (עם )?/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Kol Halashon has a short unrelated clip on some show dates (17.09.21
+// "מאזין הרב בוטבול", 5 minutes), so only a full-length program counts as
+// the same broadcast.
+const MIN_PROGRAM_SECONDS = 10 * 60;
+
+function mergeKolbarama(kolhalashonItems, episodes) {
+  const byDate = new Map(
+    kolhalashonItems
+      .filter(
+        (i) =>
+          i.category === "פרשת השבוע" &&
+          i.upload_date &&
+          i.duration_seconds >= MIN_PROGRAM_SECONDS
+      )
+      .map((i) => [i.upload_date, i])
+  );
+  const added = [];
+  for (const ep of episodes) {
+    const date = ep.date.replace(/-/g, "");
+    const topic = kolbaramaTopic(ep.title);
+    const same = byDate.get(date);
+    if (same) {
+      same.title = `${same.title} – ${topic}`;
+      same.alt_url = ep.url;
+      same.alt_source = "kolbarama";
+      continue;
+    }
+    added.push({
+      title: `אוצר לשבת – ${topic}`,
+      type: "audio",
+      source: "kolbarama",
+      kolbarama_id: ep.id,
+      url: ep.url,
+      category: "פרשת השבוע",
+      subcategory: otzarLeshabbatSubcategory(ep.title, date),
+      upload_date: date,
+      date_source: "broadcast",
+      duration_seconds: null,
+    });
+  }
+  return added;
+}
+
 async function main() {
   const raw = JSON.parse(await readFile(RAW_PATH, "utf-8"));
   const youtubeTitles = JSON.parse(await readFile(VIDEOS_PATH, "utf-8")).map((v) =>
@@ -216,10 +279,17 @@ async function main() {
   });
   const items = all.filter((i) => !isOnYoutube(i.title, youtubeTitles));
 
+  const episodes = JSON.parse(await readFile(KOLBARAMA_RAW_PATH, "utf-8"));
+  const kolbaramaItems = mergeKolbarama(items, episodes);
+
   await writeFile(OUT_PATH, JSON.stringify(items, null, 2) + "\n", "utf-8");
   const undated = items.filter((i) => !i.upload_date).length;
   console.log(
     `Wrote ${items.length} items to ${OUT_PATH} (${raw.length - unique.length} duplicates and ${all.length - items.length} already on YouTube dropped, ${undated} without a date in the title)`
+  );
+  await writeFile(KOLBARAMA_OUT_PATH, JSON.stringify(kolbaramaItems, null, 2) + "\n", "utf-8");
+  console.log(
+    `Kol Barama: ${episodes.length - kolbaramaItems.length} episodes merged into Kol Halashon items, ${kolbaramaItems.length} written to ${KOLBARAMA_OUT_PATH}`
   );
 }
 

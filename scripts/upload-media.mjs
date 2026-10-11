@@ -10,9 +10,9 @@
 // Google Drive files (taharani_drive.json, from code_python/drive_sync.py)
 // are keyed by Drive file id instead, and re-uploaded when their Drive
 // modifiedTime changes.
-// Kol Halashon lessons (taharani_kolhalashon.json, from
-// scripts/import-kolhalashon.mjs) are links to kolhalashon.com, published
-// as-is with nothing to upload.
+// Kol Halashon and Kol Barama lessons (taharani_kolhalashon.json and
+// taharani_kolbarama.json, from scripts/import-kolhalashon.mjs) are links to
+// those sites, published as-is with nothing to upload.
 // Run with: node --env-file=.env.local scripts/upload-media.mjs
 import { put, head, del } from "@vercel/blob";
 import { createReadStream } from "node:fs";
@@ -154,12 +154,13 @@ async function publishItems(items, pathnamePrefix, existingByKey, label) {
 }
 
 async function main() {
-  const [videos, audio, pdfs, drive, kolhalashon] = await Promise.all([
+  const [videos, audio, pdfs, drive, kolhalashon, kolbarama] = await Promise.all([
     loadJson("taharani_videos.json"),
     loadJson("taharani_audio.json"),
     loadJson("taharani_pdf.json"),
     loadOptionalJson("taharani_drive.json"),
     loadOptionalJson("taharani_kolhalashon.json"),
+    loadOptionalJson("taharani_kolbarama.json"),
   ]);
 
   const existing = await loadExistingArchive();
@@ -214,6 +215,7 @@ async function main() {
     ...publishedPdfs,
     ...publishedDrive,
     ...(kolhalashon ?? []),
+    ...(kolbarama ?? []),
   ].sort((a, b) =>
     (b.upload_date || "00000000").localeCompare(a.upload_date || "00000000")
   );

@@ -14,7 +14,11 @@ export interface ArchiveItem {
   format?: string;
   author?: string | null;
   /** "drive" for files synced from Google Drive (code_python/drive_sync.py),
-   * "kolhalashon" for lessons linked to kolhalashon.com
-   * (scripts/import-kolhalashon.mjs) - their url is the lesson's page there */
-  source?: "drive" | "kolhalashon";
+   * "kolhalashon"/"kolbarama" for lessons linked to kolhalashon.com /
+   * kol-barama.co.il (scripts/import-kolhalashon.mjs) - their url is the
+   * lesson's page there */
+  source?: "drive" | "kolhalashon" | "kolbarama";
+  /** A second page with the same lesson, on the alt_source site */
+  alt_url?: string;
+  alt_source?: "kolbarama";
 }
