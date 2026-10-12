@@ -315,7 +315,7 @@ type FilterParam = "source" | "sort" | "type" | "cat" | "topic" | "q";
 function updateUrl(changes: Partial<Record<FilterParam, string | null>>, mode: "push" | "replace") {
   const params = new URLSearchParams(window.location.search);
   for (const [key, value] of Object.entries(changes)) {
-    if (value === null || value === undefined || value === "" || value === "all" || (key === "sort" && value === "topic"))
+    if (value === null || value === undefined || value === "" || value === "all" || (key === "sort" && value === "newest"))
       params.delete(key);
     else params.set(key, value);
   }
@@ -337,7 +337,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
   // also kept in state, so typing never waits on a router update.
   const searchParams = useSearchParams();
   const source = oneOf(searchParams.get("source"), ["all", ...SOURCE_OPTIONS.map((o) => o.key)], "all");
-  const sort = oneOf(searchParams.get("sort"), ["topic", "newest", "oldest"] as const, "topic");
+  const sort = oneOf(searchParams.get("sort"), ["topic", "newest", "oldest"] as const, "newest");
   const type = oneOf(searchParams.get("type"), ["all", "video", "audio", "pdf"] as const, "all");
   const category = searchParams.get("cat") ?? "all";
   const topic = searchParams.get("topic") ?? "all";
