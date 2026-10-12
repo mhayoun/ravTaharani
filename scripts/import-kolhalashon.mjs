@@ -7,7 +7,14 @@
 // fetch-kolbarama.mjs): an episode broadcast the same day as a Kol Halashon
 // recording is the same lesson, so it only adds its descriptive title and a
 // second link to that item; the others become their own items
-// (taharani_kolbarama.json).
+// (taharani_kolbarama.json). Its full broadcasts
+// (kolbarama_otzar_broadcasts.json) are untitled: one already in the archive
+// (same date) only adds a second link to a Kol Halashon item that has none;
+// the others become items titled by date.
+//
+// Likewise its "הפסק והפוסק" broadcasts and clips (kolbarama_hapsak_raw.json):
+// a broadcast Kol Halashon also has (same date) gets a second link; the rest,
+// and the short clips, are added to taharani_kolbarama.json.
 //
 // kolhalashon.com sits behind a Cloudflare challenge, so the raw list can't
 // be fetched from a script. To refresh it, open
@@ -47,6 +54,8 @@ const OUT_PATH = path.join(ROOT, "taharani_kolhalashon.json");
 const VIDEOS_PATH = path.join(ROOT, "taharani_videos.json");
 const KOLBARAMA_RAW_PATH = path.join(ROOT, "kolbarama_raw.json");
 const KOLBARAMA_OUT_PATH = path.join(ROOT, "taharani_kolbarama.json");
+const KOLBARAMA_OTZAR_BROADCASTS_PATH = path.join(ROOT, "kolbarama_otzar_broadcasts.json");
+const KOLBARAMA_HAPSAK_RAW_PATH = path.join(ROOT, "kolbarama_hapsak_raw.json");
 
 // Kol Halashon's own folder name; the rav-named catch-all folder
 // ("הרב אבישי טהרני - הלכה") is replaced by its sub-folder.
@@ -250,6 +259,89 @@ function mergeKolbarama(kolhalashonItems, episodes) {
   return added;
 }
 
+function mergeKolbaramaOtzarBroadcasts(kolhalashonItems, kolbaramaItems, broadcasts) {
+  const kolhalashonByDate = new Map(
+    kolhalashonItems
+      .filter((i) => i.category === "פרשת השבוע" && i.upload_date)
+      .map((i) => [i.upload_date, i])
+  );
+  const episodeDates = new Set(kolbaramaItems.map((i) => i.upload_date));
+  const added = [];
+  for (const b of broadcasts) {
+    const date = b.date.replace(/-/g, "");
+    const same = kolhalashonByDate.get(date);
+    if (same) {
+      if (!same.alt_url) {
+        same.alt_url = b.url;
+        same.alt_source = "kolbarama";
+      }
+      continue;
+    }
+    if (episodeDates.has(date)) continue;
+    const show = /לחג/.test(decodeURIComponent(b.mp3)) ? "אוצר לחג" : "אוצר לשבת";
+    const [year, month, day] = b.date.split("-");
+    added.push({
+      title: `${day}.${month}.${year.slice(2)} - ${show}`,
+      type: "audio",
+      source: "kolbarama",
+      kolbarama_id: b.id,
+      url: b.url,
+      category: "פרשת השבוע",
+      subcategory: otzarLeshabbatSubcategory(show, date),
+      upload_date: date,
+      date_source: "broadcast",
+      duration_seconds: null,
+    });
+  }
+  return added;
+}
+
+function mergeKolbaramaHapsak(kolhalashonItems, { broadcasts, clips }) {
+  const byDate = new Map(
+    kolhalashonItems
+      .filter((i) => i.subcategory === "הפסק והפוסק" && i.upload_date)
+      .map((i) => [i.upload_date, i])
+  );
+  const added = [];
+  for (const b of broadcasts) {
+    const date = b.date.replace(/-/g, "");
+    const same = byDate.get(date);
+    if (same) {
+      same.alt_url = b.url;
+      same.alt_source = "kolbarama";
+      continue;
+    }
+    const [year, month, day] = b.date.split("-");
+    added.push({
+      title: `${day}.${month}.${year.slice(2)} - הפסק והפוסק`,
+      type: "audio",
+      source: "kolbarama",
+      kolbarama_id: b.id,
+      url: b.url,
+      category: "הלכה",
+      subcategory: "הפסק והפוסק",
+      upload_date: date,
+      date_source: "broadcast",
+      duration_seconds: null,
+    });
+  }
+  for (const c of clips) {
+    added.push({
+      title: `הפסק והפוסק – ${c.title.replace(/\s*•\s*האזינו$/, "").trim()}`,
+      type: "audio",
+      source: "kolbarama",
+      kolbarama_id: c.id,
+      url: c.url,
+      category: "הלכה",
+      subcategory: "הפסק והפוסק",
+      upload_date: c.date.replace(/-/g, ""),
+      date_source: "broadcast",
+      duration_seconds: c.duration_seconds,
+    });
+  }
+  return added;
+}
+
 async function main() {
   const raw = JSON.parse(await readFile(RAW_PATH, "utf-8"));
   const youtubeTitles = JSON.parse(await readFile(VIDEOS_PATH, "utf-8")).map((v) =>
@@ -281,15 +373,30 @@ async function main() {
 
   const episodes = JSON.parse(await readFile(KOLBARAMA_RAW_PATH, "utf-8"));
   const kolbaramaItems = mergeKolbarama(items, episodes);
+  const otzarBroadcasts = JSON.parse(await readFile(KOLBARAMA_OTZAR_BROADCASTS_PATH, "utf-8"));
+  const otzarBroadcastItems = mergeKolbaramaOtzarBroadcasts(items, kolbaramaItems, otzarBroadcasts);
+  const hapsak = JSON.parse(await readFile(KOLBARAMA_HAPSAK_RAW_PATH, "utf-8"));
+  const hapsakItems = mergeKolbaramaHapsak(items, hapsak);
 
   await writeFile(OUT_PATH, JSON.stringify(items, null, 2) + "\n", "utf-8");
   const undated = items.filter((i) => !i.upload_date).length;
   console.log(
     `Wrote ${items.length} items to ${OUT_PATH} (${raw.length - unique.length} duplicates and ${all.length - items.length} already on YouTube dropped, ${undated} without a date in the title)`
   );
-  await writeFile(KOLBARAMA_OUT_PATH, JSON.stringify(kolbaramaItems, null, 2) + "\n", "utf-8");
+  await writeFile(
+    KOLBARAMA_OUT_PATH,
+    JSON.stringify([...kolbaramaItems, ...otzarBroadcastItems, ...hapsakItems], null, 2) + "\n",
+    "utf-8"
+  );
   console.log(
     `Kol Barama: ${episodes.length - kolbaramaItems.length} episodes merged into Kol Halashon items, ${kolbaramaItems.length} written to ${KOLBARAMA_OUT_PATH}`
+  );
+  console.log(
+    `Kol Barama אוצר לשבת broadcasts: ${otzarBroadcasts.length - otzarBroadcastItems.length} already in the archive, ${otzarBroadcastItems.length} added to ${KOLBARAMA_OUT_PATH}`
+  );
+  const hapsakCount = hapsak.broadcasts.length + hapsak.clips.length;
+  console.log(
+    `Kol Barama הפסק והפוסק: ${hapsakCount - hapsakItems.length} broadcasts merged into Kol Halashon items, ${hapsakItems.length} added to ${KOLBARAMA_OUT_PATH}`
   );
 }
 
