@@ -16,3 +16,13 @@ export function mediaUrl(url: string | undefined): string | undefined {
   if (!url || !key || !url.startsWith(DRIVE_API_PREFIX)) return url;
   return `${url}&key=${encodeURIComponent(key)}`;
 }
+
+/** Google Drive's own viewer page for a Drive-hosted file, or undefined for
+ * other URLs. Used as a fallback: Google sometimes refuses Drive API
+ * downloads from a network it considers to be sending automated traffic
+ * ("Sorry... automated queries"), while its viewer keeps working. */
+export function driveViewUrl(url: string | undefined): string | undefined {
+  if (!url?.startsWith(DRIVE_API_PREFIX)) return undefined;
+  const id = url.slice(DRIVE_API_PREFIX.length).split(/[?/]/)[0];
+  return id ? `https://drive.google.com/file/d/${id}/view` : undefined;
+}

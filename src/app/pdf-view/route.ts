@@ -280,6 +280,22 @@ export async function GET(req: NextRequest) {
         state.numPages = state.doc.numPages;
       } catch (e) {
         showStatus("אירעה שגיאה בטעינת הקובץ.");
+        // Google sometimes refuses Drive API downloads from a network it
+        // considers automated, while Drive's own viewer keeps working.
+        // (No regex: inside this template string its backslashes would be eaten.)
+        const drivePrefix = "https://www.googleapis.com/drive/v3/files/";
+        const driveId = state.url.startsWith(drivePrefix)
+          ? state.url.slice(drivePrefix.length).split("?")[0].split("/")[0]
+          : "";
+        if (driveId) {
+          const link = document.createElement("a");
+          link.href = "https://drive.google.com/file/d/" + encodeURIComponent(driveId) + "/view";
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "פתיחת הקובץ ב-Google Drive ↗";
+          link.style.cssText = "display:inline-block;margin-top:12px;color:#241f1a;font-weight:600";
+          statusOverlay.append(document.createElement("br"), link);
+        }
         throw e;
       }
       state.fixer = await fixerPromise;

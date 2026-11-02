@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { mediaUrl } from "@/lib/media";
+import { driveViewUrl, mediaUrl } from "@/lib/media";
 import type { ArchiveItem } from "@/types/archive";
 import type { PdfMatch } from "@/types/pdfSearch";
 import { CATEGORY_ORDER, SUBCATEGORY_ORDER, TYPE_LABEL, orderSubcategories } from "@/lib/subcategoryOrder";
@@ -11,6 +11,34 @@ import { youtubeThumbnail } from "@/lib/youtube";
 import PdfSearch from "./PdfSearch";
 import PdfViewer from "./PdfViewer";
 import VideoPlayer from "./VideoPlayer";
+
+/** Native player; if the file can't be loaded (Google sometimes blocks
+ * Drive API downloads from a network), offers Drive's own player instead. */
+function AudioPlayer({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  const fallback = driveViewUrl(url);
+  return (
+    <div className="flex flex-col gap-1">
+      <audio
+        controls
+        preload="none"
+        className="h-8 w-full sm:w-64"
+        src={mediaUrl(url)}
+        onError={() => setFailed(true)}
+      />
+      {failed && fallback && (
+        <a
+          href={fallback}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-accent hover:underline"
+        >
+          לא ניתן לטעון את הקובץ כאן - האזנה ב-Google Drive ↗
+        </a>
+      )}
+    </div>
+  );
+}
 
 function formatDate(d: string | null | undefined) {
   if (!d || d.length !== 8) return "לא ידוע";
@@ -267,9 +295,7 @@ export function Row({
                 <span className="text-xs text-ink-dim"> · {formatDuration(item.duration_seconds)}</span>
               ) : null}
             </span>
-            {item.url && (
-              <audio controls preload="none" className="h-8 w-full sm:w-64" src={mediaUrl(item.url)} />
-            )}
+            {item.url && <AudioPlayer url={item.url} />}
           </div>
         )}
       </div>
