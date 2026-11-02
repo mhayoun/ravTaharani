@@ -3,7 +3,10 @@
 // site can offer full-text search inside PDFs without shipping pdf.js or the
 // PDF bytes to the client until a search is actually performed.
 //
-// Run manually after archive.json changes: `node scripts/build-pdf-index.mjs`
+// Run manually after archive.json changes:
+//   node --env-file=.env.local scripts/build-pdf-index.mjs
+// (Drive-hosted PDFs need NEXT_PUBLIC_GOOGLE_API_KEY; SITE_URL, if the key is
+// restricted to the site's domain, is sent as the Referer.)
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -57,7 +60,12 @@ function slugify(url) {
 
 async function indexPdf(item) {
   console.log(`Indexing: ${item.title}`);
-  const res = await fetch(item.url);
+  const key = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+  const isDriveApi = item.url.startsWith("https://www.googleapis.com/drive/");
+  if (isDriveApi && !key) throw new Error("NEXT_PUBLIC_GOOGLE_API_KEY is not set");
+  const fetchUrl = isDriveApi ? `${item.url}&key=${encodeURIComponent(key)}` : item.url;
+  const referer = process.env.SITE_URL;
+  const res = await fetch(fetchUrl, referer ? { headers: { Referer: referer } } : undefined);
   if (!res.ok) throw new Error(`Failed to fetch ${item.url}: ${res.status}`);
   const data = new Uint8Array(await res.arrayBuffer());
 

@@ -1,6 +1,6 @@
 // Converts the Kol Halashon lesson list of Rav Avishay Taharani
 // (kolhalashon_raw.json) into archive items (taharani_kolhalashon.json),
-// which upload-media.mjs merges into the published archive. Nothing is
+// which build-archive.mjs merges into the published archive. Nothing is
 // downloaded or re-hosted: each item links to its page on kolhalashon.com.
 //
 // Also merges the Kol Barama "אוצר לשבת" episodes (kolbarama_raw.json, from

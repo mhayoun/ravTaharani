@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { mediaUrl } from "@/lib/media";
 
 interface PdfViewerProps {
   url: string;
@@ -30,7 +31,7 @@ export default function PdfViewer({ url, title, initialPage, query, onClose }: P
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const src = `/pdf-view?url=${encodeURIComponent(url)}&page=${initialPage}&q=${encodeURIComponent(
+  const src = `/pdf-view?url=${encodeURIComponent(mediaUrl(url))}&page=${initialPage}&q=${encodeURIComponent(
     query
   )}&title=${encodeURIComponent(title)}`;
 

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { mediaUrl } from "@/lib/media";
 import type { ArchiveItem } from "@/types/archive";
 import type { PdfMatch } from "@/types/pdfSearch";
 import { CATEGORY_ORDER, SUBCATEGORY_ORDER, TYPE_LABEL, orderSubcategories } from "@/lib/subcategoryOrder";
@@ -248,7 +249,7 @@ export function Row({
 
         {item.type === "pdf" && (
           <a
-            href={item.url}
+            href={mediaUrl(item.url)}
             target="_blank"
             rel="noopener noreferrer"
             className="block text-[14.5px] leading-snug text-ink hover:text-accent hover:underline"
@@ -267,7 +268,7 @@ export function Row({
               ) : null}
             </span>
             {item.url && (
-              <audio controls preload="none" className="h-8 w-full sm:w-64" src={item.url} />
+              <audio controls preload="none" className="h-8 w-full sm:w-64" src={mediaUrl(item.url)} />
             )}
           </div>
         )}
@@ -293,8 +294,8 @@ function itemSources(item: ArchiveItem): SourceKey[] {
   if (item.source === "kolhalashon")
     return item.alt_source === "kolbarama" ? ["kolhalashon", "kolbarama"] : ["kolhalashon"];
   if (item.source === "kolbarama") return ["kolbarama"];
-  // Everything else is a YouTube video or an audio/PDF file uploaded to Blob
-  // (scripts/upload-media.mjs).
+  // Everything else is a YouTube video (audio/PDF files all come from
+  // Google Drive now, so "site" has no items and its filter stays hidden).
   return item.type === "video" ? ["youtube"] : ["site"];
 }
 
@@ -643,7 +644,7 @@ export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
       </main>
 
       <footer className="pt-4 text-center text-xs text-ink-dim">
-        קטלוג משולב - וידאו/אודיו/ספרים · אודיו וספרים מתארחים ב-Vercel Blob
+        קטלוג משולב - וידאו/אודיו/ספרים · אודיו וספרים מתארחים ב-Google Drive
       </footer>
 
       {pdfViewer && (

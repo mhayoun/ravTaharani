@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { mediaUrl } from "@/lib/media";
 import { youtubeVideoId } from "@/lib/youtube";
 
 interface VideoPlayerProps {
@@ -50,7 +51,7 @@ declare global {
   }
 }
 
-// Adapts an HTML5 <video> (Drive videos hosted on Vercel Blob) to the same
+// Adapts an HTML5 <video> (video files served from Google Drive) to the same
 // interface as the YouTube player, so both share all the controls below.
 function html5Player(video: HTMLVideoElement): YTPlayer {
   return {
@@ -190,7 +191,7 @@ function FullscreenExitIcon() {
 // etc.) - playback is only controllable through this component's own UI:
 // play/seek in the header above the video (hidden in full screen),
 // mute/volume/fullscreen in the footer below it. Non-YouTube URLs (video
-// files from Google Drive, hosted on Vercel Blob) play in a native <video>
+// files served from Google Drive) play in a native <video>
 // driven by the same controls.
 export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
   const videoId = youtubeVideoId(url);
@@ -426,7 +427,7 @@ export default function VideoPlayer({ url, title, onClose }: VideoPlayerProps) {
           ) : url ? (
             <video
               ref={html5VideoRef}
-              src={url}
+              src={mediaUrl(url)}
               playsInline
               preload="metadata"
               onClick={togglePlay}
