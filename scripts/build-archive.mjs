@@ -45,6 +45,30 @@ function driveUrl(id) {
   return `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media`;
 }
 
+// The date a lesson was given, when its title states one (day first:
+// "14.9.2026", "7-10-2026", "02.10.26"), as YYYYMMDD. Uploads often lag the
+// lesson by days or weeks, so this beats the upload/Drive date.
+const TITLE_DATE = /(?<![\d.\-/])(\d{1,2})([./-])(\d{1,2})\2(\d{4}|\d{2})(?![\d.\-/])/g;
+
+function dateFromTitle(title) {
+  const found = new Set();
+  for (const [, d, , m, y] of title.matchAll(TITLE_DATE)) {
+    const day = Number(d);
+    const month = Number(m);
+    const year = y.length === 2 ? 2000 + Number(y) : Number(y);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (year < 2000 || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) continue;
+    found.add(`${year}${String(month).padStart(2, "0")}${String(day).padStart(2, "0")}`);
+  }
+  // Two different dates in one title (e.g. a range) - don't guess.
+  return found.size === 1 ? [...found][0] : null;
+}
+
+function withTitleDate(item) {
+  const date = dateFromTitle(item.title ?? "");
+  return date && date !== item.upload_date ? { ...item, upload_date: date } : item;
+}
+
 async function main() {
   const [videos, audio, pdfs, drive, kolhalashon, kolbarama] = await Promise.all([
     loadJson("taharani_videos.json"),
@@ -83,7 +107,9 @@ async function main() {
     ...publishedDrive,
     ...(kolhalashon ?? []),
     ...(kolbarama ?? []),
-  ].sort((a, b) =>
+  ]
+    .map(withTitleDate)
+    .sort((a, b) =>
     (b.upload_date || "00000000").localeCompare(a.upload_date || "00000000")
   );
 
