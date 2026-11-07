@@ -8,7 +8,7 @@ export default function Header() {
             resets filters/search and refetches the archive when already on it. */}
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a href="/" className="flex items-center gap-3">
-          <Logo className="h-8 w-8 shrink-0 sm:h-9 sm:w-9" />
+          <Logo className="h-10 w-10 shrink-0 sm:h-11 sm:w-11" />
           <div className="flex flex-col gap-0.5">
             <h1 className="text-balance text-[16px] font-bold leading-tight text-[#faf7f1] sm:text-[19px]">
               הדיין הרב אבישי טהרני שליט&quot;א
