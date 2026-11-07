@@ -15,7 +15,7 @@ const frankRuhlLibre = Frank_Ruhl_Libre({
 });
 
 export const metadata: Metadata = {
-  title: "ארכיון טהרני",
+  title: "הדיין הרב אבישי טהרני",
   description: "וידאו, אודיו וספרים של הדיין הרב אבישי טהרני שליט\"א",
 };
 
