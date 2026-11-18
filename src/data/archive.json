@@ -1,5 +1,24 @@
 [
   {
+    "title": "זוהר מוצש פרשת תולדות תשפז.מיוחד ועם סיפור נפלא",
+    "type": "audio",
+    "source": "drive",
+    "drive_id": "1uoKx2jGO5v7bxL6khgxlHEF7sGtCGfzM",
+    "drive_modified": "2026-11-17T08:28:50.597Z",
+    "drive_folder": null,
+    "drive_name": "זוהר מוצש פרשת תולדות תשפז.מיוחד ועם סיפור נפלא.mp3",
+    "filename": "זוהר מוצש פרשת תולדות תשפז.מיוחד ועם סיפור נפלא.mp3",
+    "format": "mp3",
+    "size_bytes": 44499291,
+    "upload_date": "20261117",
+    "date_source": "drive_created",
+    "needs_review": false,
+    "duration_seconds": 2781,
+    "category": "זוהר הקדוש",
+    "subcategory": null,
+    "url": "https://www.googleapis.com/drive/v3/files/1uoKx2jGO5v7bxL6khgxlHEF7sGtCGfzM?alt=media"
+  },
+  {
     "title": "שיעור עין יעקב - ערב ראש חודש כסלו תשפז",
     "type": "audio",
     "source": "drive",
