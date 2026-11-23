@@ -10,6 +10,9 @@ export interface ArchiveItem {
    * and for video files synced from Google Drive */
   url?: string;
   duration_seconds?: number | null;
+  /** Site path of a frame grabbed from a Drive video (public/thumbnails/,
+   * made by code_python/drive_sync.py); YouTube videos use YouTube's own */
+  thumbnail?: string | null;
   pages?: number | null;
   format?: string;
   author?: string | null;

@@ -99,7 +99,7 @@ function PlayTileIcon() {
 
 function Tile({ item }: { item: ArchiveItem }) {
   if (item.type === "video") {
-    const thumb = youtubeThumbnail(item.url);
+    const thumb = item.thumbnail ?? youtubeThumbnail(item.url);
     if (thumb) {
       return (
         <span className="relative block h-[45px] w-20 shrink-0 overflow-hidden rounded-lg bg-surface-2 shadow-[var(--shadow-sm)] sm:h-[50px] sm:w-[88px]">
